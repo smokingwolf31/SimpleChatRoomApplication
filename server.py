@@ -4,10 +4,16 @@ import threading
 import account
 
 userBase = [account.Account]
-currentConnections = {}
+userBaseLock = threading.Lock
 
-currentConnectionsLock = threading.Lock
-requests = ["SignUp*******","logIn********","WhoIsOnline**"]
+requests = ["SignUp*******","logIn********","WhoIsOnline**","LogOut*******"]
+
+def getAllOnlineClients() -> str:
+    result = ""
+    for currentUser in userBase:
+        if currentUser.status == account.Status.Online:
+            result = result + "\n" +str(currentUser.accUsername)
+    return result
 
 def alreadyAUser(userName) -> bool:
     result = False
@@ -23,13 +29,16 @@ def getAccount(userName) -> account.Account:
         if(currentUser.accUsername == userName):
             result = currentUser
     return result
-        
+
+def updateUserBase(userToUpdate):
+    for currentUser in userBase:
+        if (currentUser.accUsername == userToUpdate.accUsername):
+            currentUser = userToUpdate
+            break
         
 
 def clientHandler(clientSocket):
     message = clientSocket.recv(4028).decode()
-    while currentConnectionsLock:
-        currentConnections.append(clientSocket)
 
     while True:
         message = pickle.load(clientSocket.recv(4028).decode())
@@ -37,20 +46,23 @@ def clientHandler(clientSocket):
         message = message[13:]
         user = account.Account
         if (command == requests[0]):
-            if(not alreadyAUser(message)):
-                user.accUsername = message
-                userBase.append(user)
-                clientSocket.sendall(pickle.dumps(user))
-            else:
-                clientSocket.sendall(pickle.dumps(("UsernameTaken")))
+            while userBaseLock:
+                if(not alreadyAUser(message)):
+                    user.accUsername = message
+                    user.status = account.Status.Online
+                    userBase.append()
+                    clientSocket.sendall(pickle.dumps(user))
+                else:
+                    clientSocket.sendall(pickle.dumps(("UsernameTaken")))
         elif (command == requests[1]):
             if(userBase.count(message) == 1):
-                
-                clientSocket.send()
-
-        while currentConnectionsLock:
-            currentConnectionsLock.remove(clientSocket)
-    clientSocket.close()
+                clientSocket.sendall(pickle.dumps(getAccount(message)))
+            else:
+                clientSocket.sendall(pickle.dumps("UserNotFound*"))
+        elif (command == requests[3]):
+            updateUserBase(message)
+            clientSocket.close()
+            break
 
 def main():    
     postNumber = 31000
