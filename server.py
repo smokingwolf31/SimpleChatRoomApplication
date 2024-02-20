@@ -38,14 +38,23 @@ def updateUserBase(userToUpdate):
         
 
 def clientHandler(clientSocket):
-    message = clientSocket.recv(4028).decode()
+    message = pickle.loads(clientSocket.recv(4028))
 
     while True:
-        message = pickle.load(clientSocket.recv(4028).decode())
         command = message[0:13]
         message = message[13:]
         user = account.Account
-        if (command == requests[0]):
+
+
+        # Log In
+        if (command == requests[1]):
+            if(userBase.count(message) == 1):
+                clientSocket.sendall(pickle.dumps(getAccount(message)))
+            else:
+                clientSocket.sendall(pickle.dumps("UserNotFound*"))
+
+        # Sign Up
+        elif (command == requests[0]):
             while userBaseLock:
                 if(not alreadyAUser(message)):
                     user.accUsername = message
@@ -54,11 +63,8 @@ def clientHandler(clientSocket):
                     clientSocket.sendall(pickle.dumps(user))
                 else:
                     clientSocket.sendall(pickle.dumps(("UsernameTaken")))
-        elif (command == requests[1]):
-            if(userBase.count(message) == 1):
-                clientSocket.sendall(pickle.dumps(getAccount(message)))
-            else:
-                clientSocket.sendall(pickle.dumps("UserNotFound*"))
+
+        # Log Out
         elif (command == requests[3]):
             updateUserBase(message)
             clientSocket.close()
