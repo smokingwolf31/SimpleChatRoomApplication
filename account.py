@@ -1,12 +1,13 @@
 import enum
 
-class Status(enum):
+class Status(enum.Enum):
     OFFLINE = "Offline"
-    Online = "Online"
+    ONLINE = "Online"
     AWAY = "Away"
 
 class Account:
-    accUsername = ""
-    inbox = {}
-    status = Status.OFFLINE
+    def __init__(self, accUsername="spaceHolder", status=Status.OFFLINE):
+        self.accUsername = accUsername
+        self.inbox = {}
+        self.status = status
 

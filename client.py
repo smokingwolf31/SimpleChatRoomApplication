@@ -1,30 +1,34 @@
 from socket import *
 import account
 import pickle
-import sys
 
-myAccount = account.Account
-serverName = "inputIpAddressHere"
-serverPort = 31000
+myAccount = account.Account()
+serverName = "196.47.227.102"
+serverPort = 14000
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.connect((serverName, serverPort))
 while True:
-    request = input("1. Log In\n2. Sign Up\n3. Quit")
-    if request == 1:
+    request = input("1. Sign Up\n2. Log In\n3. Quit\n")
+    print(request)
+
+    #Sign Up
+    if request == "1":
         while True:
-            userName = input("Please enter a user name you like or q or quit")
-            clientSocket.sendall(pickle.dumps("logIn********"+userName))
+            userName = input("Please enter a user name you like or q to quit\n")
+            clientSocket.sendall(pickle.dumps("SignUp*******"+userName))
             createdAcc = pickle.loads(clientSocket.recv(4028))
-            if(createdAcc == "UsernameTaken"):
-                print("That username is taken")
+            print("client" + createdAcc.accUsername)
+            if(createdAcc.accUsername != userName):
+                print("That username is taken\n")
             else:
                 myAccount = createdAcc
+                print("Account created your username is:\n"+myAccount.accUsername)
 
-    elif request == 2:
+    elif request == "2":
         print("")
-    elif request == 3:
+    elif request == "3":
         print("Good bye")
         break
     else:
-        print("Please enter a valid option")
+        print("Please enter a valid option\n")
     

@@ -3,10 +3,11 @@ import pickle
 import threading
 import account
 
-userBase = [account.Account]
-userBaseLock = threading.Lock
 
-requests = ["SignUp*******","logIn********","WhoIsOnline**","LogOut*******"]
+userBase = []
+userBaseLock = threading.Lock()
+
+requests = ["SignUp*******","LogIn********","WhoIsOnline**","LogOut*******"]
 
 def getAllOnlineClients() -> str:
     result = ""
@@ -38,31 +39,38 @@ def updateUserBase(userToUpdate):
         
 
 def clientHandler(clientSocket):
-    message = pickle.loads(clientSocket.recv(4028))
-
     while True:
+        message = pickle.loads(clientSocket.recv(4028))
         command = message[0:13]
         message = message[13:]
-        user = account.Account
+        print(message+" bruj")
 
+        # Sign Up
+        if (command == requests[0]):
+            with userBaseLock:
+                print("just enterd\n")
+                user = account.Account(accUsername=message, status=account.Status.OFFLINE)
+                if(message == "UsernameTaken"):
+                    user.accUsername = "NotValidUserName"
+                    print("dump invalid user\n")
+                    clientSocket.sendall(pickle.dumps(user))
+                elif(not alreadyAUser(message)):
+                    userBase.append(user)
+                    user.status = account.Status.ONLINE
+                    print("dump new user\n")
+                    clientSocket.sendall(pickle.dumps(user))
+                else:
+                    user.accUsername = "UsernameTaken"
+                    print("dump existing user\n")
+                    clientSocket.sendall(pickle.dumps(user))
 
         # Log In
-        if (command == requests[1]):
-            if(userBase.count(message) == 1):
+        elif (command == requests[1]):
+            if (alreadyAUser(message)):
                 clientSocket.sendall(pickle.dumps(getAccount(message)))
             else:
                 clientSocket.sendall(pickle.dumps("UserNotFound*"))
 
-        # Sign Up
-        elif (command == requests[0]):
-            while userBaseLock:
-                if(not alreadyAUser(message)):
-                    user.accUsername = message
-                    user.status = account.Status.Online
-                    userBase.append()
-                    clientSocket.sendall(pickle.dumps(user))
-                else:
-                    clientSocket.sendall(pickle.dumps(("UsernameTaken")))
 
         # Log Out
         elif (command == requests[3]):
@@ -70,18 +78,18 @@ def clientHandler(clientSocket):
             clientSocket.close()
             break
 
-def main():    
-    postNumber = 31000
+def main():
+    postNumber = 14000
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('',postNumber))
     serverSocket.listen(5)
 
     while True:
         connectionSocket, clientAddr = serverSocket.accept()
-        clientHandlerThread = threading.Thread(target=clientHandler, args=connectionSocket)
+        clientHandlerThread = threading.Thread(target=clientHandler, args=(connectionSocket,))
         clientHandlerThread.start()
 
-if __name__ == "main":
+if __name__ == "__main__":
     main()
 
         
