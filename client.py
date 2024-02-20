@@ -10,7 +10,7 @@ clientSocket.connect((serverName, serverPort))
 while True:
     request = input("1. Sign Up\n2. Log In\n3. Quit\n")
     print(request)
-
+ 
     #Sign Up
     if request == "1":
         while True:
