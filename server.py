@@ -37,37 +37,27 @@ def updateUserBase(userToUpdate):
             currentUser = userToUpdate
             break
         
-def signUp(message, clientSocket):
-    with userBaseLock:
-        print("just enterd\n")
-        user = account.Account(accUsername=message, status=account.Status.OFFLINE)
-        if(message == "UsernameTaken"):
-            user.accUsername = "NotValidUserName"
-            print("dump invalid user\n")
-            clientSocket.sendall(pickle.dumps(user))
-        elif(not alreadyAUser(message)):
+def signUp(clientSocket):
+    user = pickle.loads(clientSocket.recv(4028))
+    print(user.accUsername)
+    if(not alreadyAUser(user.accUsername)):
+        with userBaseLock:
             userBase.append(user)
-            user.status = account.Status.ONLINE
-            print("dump new user\n")
-            clientSocket.sendall(pickle.dumps(user))
-        else:
-            user.accUsername = "UsernameTaken"
-            print("dump existing user\n")
-            clientSocket.sendall(pickle.dumps(user))
+        user.status = account.Status.ONLINE
+        clientSocket.sendall(pickle.dumps(user))
+    else:
+        clientSocket.sendall(pickle.dumps(user))
 
 def clientHandler(clientSocket):
     while True:
         message = pickle.loads(clientSocket.recv(4028))
-        command = message[0:13]
-        message = message[13:]
-        print(message+" bruj")
 
         # Sign Up
-        if (command == requests[0]):
-            signUp(message, clientSocket)
+        if (message == requests[0]):
+            signUp(clientSocket)
 
         # Log In
-        elif (command == requests[1]):
+        elif (message == requests[1]):
             if (alreadyAUser(message)):
                 user = getAccount(message)
                 user.status = account.Status.ONLINE
@@ -78,7 +68,7 @@ def clientHandler(clientSocket):
 
 
         # Log Out
-        elif (command == requests[3]):
+        elif (message == requests[3]):
             message.status = account.Status.OFFLINE
             updateUserBase(message)
             clientSocket.close()
