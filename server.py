@@ -37,6 +37,23 @@ def updateUserBase(userToUpdate):
             currentUser = userToUpdate
             break
         
+def signUp(message, clientSocket):
+    with userBaseLock:
+        print("just enterd\n")
+        user = account.Account(accUsername=message, status=account.Status.OFFLINE)
+        if(message == "UsernameTaken"):
+            user.accUsername = "NotValidUserName"
+            print("dump invalid user\n")
+            clientSocket.sendall(pickle.dumps(user))
+        elif(not alreadyAUser(message)):
+            userBase.append(user)
+            user.status = account.Status.ONLINE
+            print("dump new user\n")
+            clientSocket.sendall(pickle.dumps(user))
+        else:
+            user.accUsername = "UsernameTaken"
+            print("dump existing user\n")
+            clientSocket.sendall(pickle.dumps(user))
 
 def clientHandler(clientSocket):
     while True:
@@ -47,33 +64,22 @@ def clientHandler(clientSocket):
 
         # Sign Up
         if (command == requests[0]):
-            with userBaseLock:
-                print("just enterd\n")
-                user = account.Account(accUsername=message, status=account.Status.OFFLINE)
-                if(message == "UsernameTaken"):
-                    user.accUsername = "NotValidUserName"
-                    print("dump invalid user\n")
-                    clientSocket.sendall(pickle.dumps(user))
-                elif(not alreadyAUser(message)):
-                    userBase.append(user)
-                    user.status = account.Status.ONLINE
-                    print("dump new user\n")
-                    clientSocket.sendall(pickle.dumps(user))
-                else:
-                    user.accUsername = "UsernameTaken"
-                    print("dump existing user\n")
-                    clientSocket.sendall(pickle.dumps(user))
+            signUp(message, clientSocket)
 
         # Log In
         elif (command == requests[1]):
             if (alreadyAUser(message)):
-                clientSocket.sendall(pickle.dumps(getAccount(message)))
+                user = getAccount(message)
+                user.status = account.Status.ONLINE
+                clientSocket.sendall(pickle.dumps(user))
             else:
+                user = account.Account()
                 clientSocket.sendall(pickle.dumps("UserNotFound*"))
 
 
         # Log Out
         elif (command == requests[3]):
+            message.status = account.Status.OFFLINE
             updateUserBase(message)
             clientSocket.close()
             break
