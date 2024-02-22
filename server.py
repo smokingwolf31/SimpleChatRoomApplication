@@ -7,7 +7,7 @@ import account
 userBase = []
 userBaseLock = threading.Lock()
 
-requests = ["SignUp*******","LogIn********","WhoIsOnline**","LogOut*******"]
+requests = ["SignUp*******","LogIn********","ConnectToAcc*", "MsgOfflineAcc","WhoIsOnline**","LogOut*******", "DoesUserExist", "IsUserOnline*"]
 
 
 def alreadyAUser(userName) -> bool:
@@ -33,24 +33,43 @@ def updateUserBase(userToUpdate):
             break
         
 def signUp(clientSocket):
-    user = pickle.loads(clientSocket.recv(4028))
-    print(user.accUsername)
-    if(not alreadyAUser(user.accUsername)):
+    accUsername = pickle.loads(clientSocket.recv(4028))
+    if(not alreadyAUser(accUsername)):
+        user = account.Account()
+        user.status = account.Status.ONLINE
+        user.socket = clientSocket
         with userBaseLock:
             userBase.append(user)
-        user.status = account.Status.ONLINE
         clientSocket.sendall(pickle.dumps(user))
     else:
-        clientSocket.sendall(pickle.dumps(user))
+        clientSocket.sendall(pickle.dumps(account.Account()))
 
 def logIn(clientSocket):
-    user = pickle.loads(clientSocket.recv(4028))
-    if (alreadyAUser(user.accUsername)):
-        user = getAccount(user.accUsername)
+    accUsername = pickle.loads(clientSocket.recv(4028))
+    if (alreadyAUser(accUsername)):
+        user = getAccount(accUsername)
         user.status = account.Status.ONLINE
+        user.socket = clientSocket
         clientSocket.sendall(pickle.dumps(user))
     else:
-        clientSocket.sendall(pickle.dumps(user))
+        clientSocket.sendall(account.Account())
+
+def connectToAcc(clientSocket):
+    accUsername = pickle.loads(clientSocket.recv(4028))
+    accToConnectTo = getAccount(accUsername)
+    clientSocket.sendall(pickle.dumps(accToConnectTo))
+
+def sendMsgToOfflineAcc(clientSocket):
+    accUsernameToSendFrom = pickle.loads(clientSocket.recv(4028))
+    accUsernameToSendTo = pickle.loads(clientSocket.recv(4028))
+    actualMessage = pickle.loads(clientSocket.recv(4028))
+    accToConnectTo = getAccount(accUsernameToSendTo)
+    if accToConnectTo.inbox.get(accUsernameToSendFrom) is not None:
+        accToConnectTo.inbox[accUsernameToSendFrom].append(actualMessage)
+    else:
+        accToConnectTo.inbox[accToConnectTo] = [actualMessage]
+    updateUserBase(accToConnectTo)
+
 
 def whoIsOnline(clientSocket):
     result = [user.accUsername for user in userBase if user.status == account.Status.ONLINE]
@@ -60,6 +79,7 @@ def logOut(clientSocket):
     user = pickle.loads(clientSocket.recv(4028))
     clientSocket.close()
     user.status = account.Status.OFFLINE
+    user.socket = None
     updateUserBase(user)
 
 def clientHandler(clientSocket):
@@ -74,14 +94,37 @@ def clientHandler(clientSocket):
         elif (message == requests[1]):
             logIn(clientSocket)
         
-        # List online users
+        #Connect with another user
         elif (message == requests[2]):
+            connectToAcc()
+
+        #Send messages to offline users 
+        elif (message == requests[3]):
+            sendMsgToOfflineAcc()
+
+        # List online users
+        elif (message == requests[4]):
             whoIsOnline(clientSocket)
 
         # Log Out
-        elif (message == requests[3]):
+        elif (message == requests[5]):
             logOut(clientSocket)
             break
+
+        #Does this user exit
+        elif (message == requests[6]):
+            userName = pickle.loads(clientSocket.recv(4028))
+            clientSocket.sendAll(pickle.dumps(alreadyAUser(userName)))
+
+        #Is This User Online
+        elif (message == requests[7]):
+            userName = pickle.loads(clientSocket.recv(4028))
+            accToCheck = getAccount(userName)
+            if accToCheck.status == account.Status.ONLINE:
+                clientSocket.sendAll(pickle.dumps(True))
+            else:
+                clientSocket.sendAll(pickle.dumps(False))
+            
 
 def main():
     postNumber = 14000
@@ -90,8 +133,8 @@ def main():
     serverSocket.listen(5)
 
     while True:
-        connectionSocket, clientAddr = serverSocket.accept()
-        clientHandlerThread = threading.Thread(target=clientHandler, args=(connectionSocket,))
+        clientSocket, clientAddr = serverSocket.accept()
+        clientHandlerThread = threading.Thread(target=clientHandler, args=(clientSocket,))
         clientHandlerThread.start()
 
 if __name__ == "__main__":
