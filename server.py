@@ -9,12 +9,6 @@ userBaseLock = threading.Lock()
 
 requests = ["SignUp*******","LogIn********","WhoIsOnline**","LogOut*******"]
 
-def getAllOnlineClients() -> str:
-    result = ""
-    for currentUser in userBase:
-        if currentUser.status == account.Status.Online:
-            result = result + "\n" +str(currentUser.accUsername)
-    return result
 
 def alreadyAUser(userName) -> bool:
     result = False
@@ -25,7 +19,7 @@ def alreadyAUser(userName) -> bool:
     return result
 
 def getAccount(userName) -> account.Account:
-    result = account.Account
+    result = account.Account()
     for currentUser in userBase:
         if(currentUser.accUsername == userName):
             result = currentUser
@@ -34,7 +28,8 @@ def getAccount(userName) -> account.Account:
 def updateUserBase(userToUpdate):
     for currentUser in userBase:
         if (currentUser.accUsername == userToUpdate.accUsername):
-            currentUser = userToUpdate
+            currentUser.status = userToUpdate.status
+            currentUser.inbox = userToUpdate.inbox
             break
         
 def signUp(clientSocket):
@@ -48,6 +43,25 @@ def signUp(clientSocket):
     else:
         clientSocket.sendall(pickle.dumps(user))
 
+def logIn(clientSocket):
+    user = pickle.loads(clientSocket.recv(4028))
+    if (alreadyAUser(user.accUsername)):
+        user = getAccount(user.accUsername)
+        user.status = account.Status.ONLINE
+        clientSocket.sendall(pickle.dumps(user))
+    else:
+        clientSocket.sendall(pickle.dumps(user))
+
+def whoIsOnline(clientSocket):
+    result = [user.accUsername for user in userBase if user.status == account.Status.ONLINE]
+    clientSocket.sendall(pickle.dumps(result))
+
+def logOut(clientSocket):
+    user = pickle.loads(clientSocket.recv(4028))
+    clientSocket.close()
+    user.status = account.Status.OFFLINE
+    updateUserBase(user)
+
 def clientHandler(clientSocket):
     while True:
         message = pickle.loads(clientSocket.recv(4028))
@@ -58,20 +72,15 @@ def clientHandler(clientSocket):
 
         # Log In
         elif (message == requests[1]):
-            if (alreadyAUser(message)):
-                user = getAccount(message)
-                user.status = account.Status.ONLINE
-                clientSocket.sendall(pickle.dumps(user))
-            else:
-                user = account.Account()
-                clientSocket.sendall(pickle.dumps("UserNotFound*"))
-
+            logIn(clientSocket)
+        
+        # List online users
+        elif (message == requests[2]):
+            whoIsOnline(clientSocket)
 
         # Log Out
         elif (message == requests[3]):
-            message.status = account.Status.OFFLINE
-            updateUserBase(message)
-            clientSocket.close()
+            logOut(clientSocket)
             break
 
 def main():

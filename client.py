@@ -27,14 +27,35 @@ def signUp():
             
 
 def logIn():
-    print("to be completed")
+    global myAccount
+    clientSocket.sendall(pickle.dumps("LogIn********"))
+    while True:
+        userName = input("Please enter your username or q to quit\n")
+        if (userName == "q"):
+            break
+        myAccount.accUsername = userName
+        clientSocket.sendall(pickle.dumps(myAccount))
+        myAccount = pickle.loads(clientSocket.recv(4028))
+        if (myAccount.status == account.Status.ONLINE):
+            print("Welcome back" + myAccount.accUsername+"\n")
+            break
+        else:
+            print("Account not found !!\n")
 
 def logOut():
-    print(" ")
+    clientSocket.sendall(pickle.dumps("LogOut*******"))
+    clientSocket.sendall(pickle.dumps(myAccount))
+    clientSocket.close()
+    print("It was nice having you :)")
 
 def listOnlineAccounts():
-    print("to be completed")
-
+    clientSocket.sendall(pickle.dumps("WhoIsOnline**"))
+    onlineUsers = pickle.loads(clientSocket.recv(4028))
+    if onlineUsers:
+        for accUsername in onlineUsers:
+            print(accUsername)
+    else:
+        print("No online users at the moment")
 
 def main():
     while True:
