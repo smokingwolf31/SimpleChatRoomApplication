@@ -65,7 +65,7 @@ def logIn():
         else:
             print("Account not found !!\n")
 
-def handleOlineInbox(clientSocket, usernameToSendTo):
+def handleOnlineInbox(clientSocket, usernameToSendTo):
     print(usernameToSendTo + " ** Online **\n")
     printInbox(usernameToSendTo)
     messageToSend = msg.Message()
@@ -128,7 +128,7 @@ def handleInbox():
             userOnline = pickle.loads(clientSocket.recv(4028)).result
             clearTerminal()
             if (userOnline):
-                handleOlineInbox(clientSocket, usernameToSendTo)
+                handleOnlineInbox(clientSocket, usernameToSendTo)
             else:
                 handleOfflineInbox(usernameToSendTo)
             myAccount.currentlyInbox = ""
@@ -148,14 +148,14 @@ def handleReceivedInbox(peerSocket):
                 data, _ = peerSocket.recvfrom(2048)
                 messageReceived = pickle.loads(data)
                 messageSent = messageReceived.text
-                sender = messageReceived.request
+                sender = (messageReceived.request).strip
                 if(sender == myAccount.currentlyInbox):
-                    print(sender + ":" + messageSent)
+                    print(sender + ": " + messageSent)
                 if myAccount.inbox.get(sender) is None:
                     myAccount.inbox[sender] = []
                 myAccount.inbox[sender].append(sender + ": " + messageSent)
         except Exception as e:
-            pass
+            print(e)
 
 
 
