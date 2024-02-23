@@ -3,6 +3,7 @@ import threading
 import account
 import message as msg
 import pickle
+import select
 import sys
 
 myAccount = account.Account(accUsername="spaceHolder", status=account.Status.OFFLINE)
@@ -13,6 +14,7 @@ clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.connect((serverName, serverPort))
 
 peerSocket = socket(AF_INET, SOCK_DGRAM)
+
 
 def signUp():
     while True:
@@ -31,7 +33,6 @@ def signUp():
             myAccount = accSent
             print("Account created your username is:\n"+myAccount.accUsername)
             peerSocket.bind(('',myAccount.port))
-            inboxRecivindThread = threading.Thread(target=handleRecievedInbox, args=(peerSocket,))
             inboxRecivindThread.start()
             break
             
@@ -50,7 +51,6 @@ def logIn():
         if (myAccount.status == account.Status.ONLINE):
             print("Welcome back" + myAccount.accUsername+"\n")
             peerSocket.bind(('',myAccount.port))
-            inboxRecivindThread = threading.Thread(target=handleRecievedInbox, args=(peerSocket,))
             inboxRecivindThread.start()
             break
         else:
@@ -110,13 +110,21 @@ def handleInbox():
             print("An account with that username was Not Found\n")
             continue
 
-def handleRecievedInbox(peerSocket):
-    while True:
-        data, serverAddress = peerSocket.recvfrom(2048)
-        messageReceived = pickle.loads(data)
-        messageSent = messageReceived.text
-        sender = messageReceived.request
-        print(sender + " :::" + messageSent)
+def handleReceivedInbox(peerSocket):
+    peerSocket.settimeout(1)
+    while myAccount.status == account.Status.ONLINE:
+        try:
+            readable, _, _ = select.select([peerSocket], [], [], 1)
+
+            if readable:
+                data, _ = peerSocket.recvfrom(2048)
+                messageReceived = pickle.loads(data)
+                messageSent = messageReceived.text
+                sender = messageReceived.request
+                print(sender + " :" + messageSent)
+        except Exception as e:
+            pass
+
 
 
 def listOnlineAccounts():
@@ -131,16 +139,21 @@ def listOnlineAccounts():
         print("No online users at the moment\n")
 
 def logOut():
+    myAccount.status = account.Status.OFFLINE
     messageToSend = msg.Message()
     messageToSend.request = "LogOut*******"
     messageToSend.account = myAccount
     clientSocket.sendall(pickle.dumps(messageToSend))
     clientSocket.close()
+    peerSocket.close()
+
     print("It was nice having you :)\n")
+
+inboxRecivindThread = threading.Thread(target=handleReceivedInbox, args=(peerSocket,))
 
 def main():
     while True:
-    
+        
         #Sign Up
         if(myAccount.status == account.Status.OFFLINE):
             request = input("1. Sign Up\n2. Log In\n")
