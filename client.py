@@ -1,39 +1,46 @@
 from socket import *
 import account
+import message
 import pickle
+import sys
 
 myAccount = account.Account(accUsername="spaceHolder", status=account.Status.OFFLINE)
-serverName = "196.47.227.102"
-serverPort = 14000
+serverName = "196.47.231.19"
+serverPort = 15029
+
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.connect((serverName, serverPort))
 
 def signUp():
     while True:
         global myAccount
-        userName = input("Please enter a user name you like or q to quit\n")
+        userName = input("Please enter a user name you like or q to quit\n").strip()
+        messageToSend = message.Message() #sent messageToSend.text = usernName
         if userName == "q":
             break
-        clientSocket.sendall(pickle.dumps("SignUp*******"))
-        clientSocket.sendall(pickle.dumps(userName))
-        createdAcc = pickle.loads(clientSocket.recv(4028))
-        if(createdAcc.status == account.Status.OFFLINE):
+        messageToSend.request = "SignUp*******"
+        messageToSend.text = userName
+        clientSocket.sendall(pickle.dumps(messageToSend))
+        accSent = (pickle.loads(clientSocket.recv(4028))).account
+        if(accSent.status == account.Status.OFFLINE):
             print("That username is taken\n")
         else:
-            myAccount = createdAcc
+            myAccount = accSent
             print("Account created your username is:\n"+myAccount.accUsername)
             break
             
 
 def logIn():
     global myAccount
-    clientSocket.sendall(pickle.dumps("LogIn********"))
     while True:
         userName = input("Please enter your username or q to quit\n")
         if (userName == "q"):
             break
-        clientSocket.sendall(pickle.dumps(userName))
-        myAccount = pickle.loads(clientSocket.recv(4028))
+        messageToSend = message.Message()
+        messageToSend.request = "LogIn********"
+        messageToSend.text = userName
+        clientSocket.sendall(pickle.dumps(messageToSend))
+        myAccount = pickle.loads(clientSocket.recv(4028)).account
         if (myAccount.status == account.Status.ONLINE):
             print("Welcome back" + myAccount.accUsername+"\n")
             break
@@ -76,8 +83,10 @@ def handleInbox():
             print("An account with that username was Not Found\n")
 
 def listOnlineAccounts():
-    clientSocket.sendall(pickle.dumps("WhoIsOnline**"))
-    onlineUsers = pickle.loads(clientSocket.recv(4028))
+    messageToSend = message.Message()
+    messageToSend.request = "WhoIsOnline**"
+    clientSocket.sendall(pickle.dumps(messageToSend))
+    onlineUsers = pickle.loads(clientSocket.recv(4028)).arrayToSend
     if onlineUsers:
         for accUsername in onlineUsers:
             print(accUsername)
@@ -85,8 +94,10 @@ def listOnlineAccounts():
         print("No online users at the moment\n")
 
 def logOut():
-    clientSocket.sendall(pickle.dumps("LogOut*******"))
-    clientSocket.sendall(pickle.dumps(myAccount))
+    messageToSend = message.Message()
+    messageToSend.request = "LogOut*******"
+    messageToSend.account = myAccount
+    clientSocket.sendall(pickle.dumps(messageToSend))
     clientSocket.close()
     print("It was nice having you :)\n")
 

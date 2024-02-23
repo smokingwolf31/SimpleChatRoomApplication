@@ -2,6 +2,7 @@ from socket import *
 import pickle
 import threading
 import account
+import message
 
 
 userBase = []
@@ -30,29 +31,31 @@ def updateUserBase(userToUpdate):
         if (currentUser.accUsername == userToUpdate.accUsername):
             currentUser.status = userToUpdate.status
             currentUser.inbox = userToUpdate.inbox
+            currentUser.address = userToUpdate.address
+            currentUser.port = userToUpdate.port
             break
         
-def signUp(clientSocket):
-    accUsername = pickle.loads(clientSocket.recv(4028))
-    if(not alreadyAUser(accUsername)):
+def signUp(clientSocket, messageRecieved):
+    if(not alreadyAUser(messageRecieved.text)):
         user = account.Account()
+        user.accUsername = messageRecieved.text
         user.status = account.Status.ONLINE
-        user.socket = clientSocket
         with userBaseLock:
             userBase.append(user)
-        clientSocket.sendall(pickle.dumps(user))
+        messageToSend = message.Message().withAccount(user)
+        clientSocket.sendall(pickle.dumps(messageToSend)) #3rd Message sent
     else:
-        clientSocket.sendall(pickle.dumps(account.Account()))
+        clientSocket.sendall(pickle.dumps(message.Message().withAccount(account.Account()))) #3rd Message Sent
 
-def logIn(clientSocket):
-    accUsername = pickle.loads(clientSocket.recv(4028))
+def logIn(clientSocket, messageRecieved):
+    accUsername = messageRecieved.text
     if (alreadyAUser(accUsername)):
         user = getAccount(accUsername)
         user.status = account.Status.ONLINE
-        user.socket = clientSocket
-        clientSocket.sendall(pickle.dumps(user))
+        clientSocket.sendall(pickle.dumps(message.Message().withAccount(user)))
+        updateUserBase(user)
     else:
-        clientSocket.sendall(account.Account())
+        clientSocket.sendall(pickle.dumps(message.Message().withAccount(account.Account())))
 
 def connectToAcc(clientSocket):
     accUsername = pickle.loads(clientSocket.recv(4028))
@@ -71,12 +74,13 @@ def sendMsgToOfflineAcc(clientSocket):
     updateUserBase(accToConnectTo)
 
 
-def whoIsOnline(clientSocket):
-    result = [user.accUsername for user in userBase if user.status == account.Status.ONLINE]
-    clientSocket.sendall(pickle.dumps(result))
+def whoIsOnline(clientSocket, messageRecieved):
+    messageTosend = message.Message()
+    messageTosend.arrayToSend = [user.accUsername for user in userBase if user.status == account.Status.ONLINE]
+    clientSocket.sendall(pickle.dumps(messageTosend))
 
-def logOut(clientSocket):
-    user = pickle.loads(clientSocket.recv(4028))
+def logOut(clientSocket, messageSent):
+    user = messageSent.account
     clientSocket.close()
     user.status = account.Status.OFFLINE
     user.socket = None
@@ -84,15 +88,16 @@ def logOut(clientSocket):
 
 def clientHandler(clientSocket):
     while True:
-        message = pickle.loads(clientSocket.recv(4028))
+        messageRecieved = pickle.loads(clientSocket.recv(4028)) #1st message recieved
+        message = messageRecieved.request
 
         # Sign Up
-        if (message == requests[0]):
-            signUp(clientSocket)
+        if (message == requests[0]): #request[0] = "SignUp*******"
+            signUp(clientSocket, messageRecieved)
 
         # Log In
         elif (message == requests[1]):
-            logIn(clientSocket)
+            logIn(clientSocket, messageRecieved)
         
         #Connect with another user
         elif (message == requests[2]):
@@ -104,7 +109,7 @@ def clientHandler(clientSocket):
 
         # List online users
         elif (message == requests[4]):
-            whoIsOnline(clientSocket)
+            whoIsOnline(clientSocket, messageRecieved)
 
         # Log Out
         elif (message == requests[5]):
@@ -127,10 +132,10 @@ def clientHandler(clientSocket):
             
 
 def main():
-    postNumber = 14000
+    postNumber = 15029
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('',postNumber))
-    serverSocket.listen(5)
+    serverSocket.listen(1)
 
     while True:
         clientSocket, clientAddr = serverSocket.accept()
