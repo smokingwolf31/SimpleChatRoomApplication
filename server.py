@@ -2,7 +2,7 @@ from socket import *
 import pickle
 import threading
 import account
-import message
+import message as msg
 
 
 userBase = []
@@ -40,32 +40,41 @@ def signUp(clientSocket, messageRecieved):
         user = account.Account()
         user.accUsername = messageRecieved.text
         user.status = account.Status.ONLINE
+        user.address, _ = clientSocket.getsockname()
+        user.port = 16000 + len(userBase)
         with userBaseLock:
             userBase.append(user)
-        messageToSend = message.Message().withAccount(user)
+        messageToSend = msg.Message().withAccount(user)
         clientSocket.sendall(pickle.dumps(messageToSend)) #3rd Message sent
     else:
-        clientSocket.sendall(pickle.dumps(message.Message().withAccount(account.Account()))) #3rd Message Sent
+        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account()))) #3rd Message Sent
 
 def logIn(clientSocket, messageRecieved):
     accUsername = messageRecieved.text
     if (alreadyAUser(accUsername)):
         user = getAccount(accUsername)
         user.status = account.Status.ONLINE
-        clientSocket.sendall(pickle.dumps(message.Message().withAccount(user)))
+        user.address, _ = clientSocket.getsockname()
+        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
         updateUserBase(user)
     else:
-        clientSocket.sendall(pickle.dumps(message.Message().withAccount(account.Account())))
+        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
 
-def connectToAcc(clientSocket):
-    accUsername = pickle.loads(clientSocket.recv(4028))
+def connectToAcc(clientSocket, messageRecieved):
+    messageToSend = msg.Message()
+    accUsername = messageRecieved.text
     accToConnectTo = getAccount(accUsername)
-    clientSocket.sendall(pickle.dumps(accToConnectTo))
+    messageToSend.ipAddress = accToConnectTo.address
+    messageToSend.portNumber = accToConnectTo.port
+    clientSocket.sendall(pickle.dumps(messageToSend))
 
-def sendMsgToOfflineAcc(clientSocket):
-    accUsernameToSendFrom = pickle.loads(clientSocket.recv(4028))
-    accUsernameToSendTo = pickle.loads(clientSocket.recv(4028))
-    actualMessage = pickle.loads(clientSocket.recv(4028))
+def sendMsgToOfflineAcc(clientSocket, messageRecieved):
+    print("Here Here")
+    accNamesAndMessage = messageRecieved.text
+    accUsernameToSendFrom = accNamesAndMessage[:accNamesAndMessage.index(' ')]
+    accNamesAndMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1]
+    accUsernameToSendTo = accNamesAndMessage[:accNamesAndMessage.index(' ')+1]
+    actualMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1]
     accToConnectTo = getAccount(accUsernameToSendTo)
     if accToConnectTo.inbox.get(accUsernameToSendFrom) is not None:
         accToConnectTo.inbox[accUsernameToSendFrom].append(actualMessage)
@@ -75,7 +84,7 @@ def sendMsgToOfflineAcc(clientSocket):
 
 
 def whoIsOnline(clientSocket, messageRecieved):
-    messageTosend = message.Message()
+    messageTosend = msg.Message()
     messageTosend.arrayToSend = [user.accUsername for user in userBase if user.status == account.Status.ONLINE]
     clientSocket.sendall(pickle.dumps(messageTosend))
 
@@ -101,11 +110,11 @@ def clientHandler(clientSocket):
         
         #Connect with another user
         elif (message == requests[2]):
-            connectToAcc()
+            connectToAcc(clientSocket, messageRecieved)
 
         #Send messages to offline users 
         elif (message == requests[3]):
-            sendMsgToOfflineAcc()
+            sendMsgToOfflineAcc(clientSocket, messageRecieved)
 
         # List online users
         elif (message == requests[4]):
@@ -113,26 +122,31 @@ def clientHandler(clientSocket):
 
         # Log Out
         elif (message == requests[5]):
-            logOut(clientSocket)
+            logOut(clientSocket, messageRecieved)
             break
 
         #Does this user exit
         elif (message == requests[6]):
-            userName = pickle.loads(clientSocket.recv(4028))
-            clientSocket.sendAll(pickle.dumps(alreadyAUser(userName)))
+            messageToSend = msg.Message()
+            messageToSend.result = alreadyAUser(messageRecieved.text)
+            clientSocket.sendall(pickle.dumps(messageToSend))
 
         #Is This User Online
         elif (message == requests[7]):
-            userName = pickle.loads(clientSocket.recv(4028))
+            print("enters elif")
+            userName = messageRecieved.text
             accToCheck = getAccount(userName)
+            messageToSend = msg.Message()
             if accToCheck.status == account.Status.ONLINE:
-                clientSocket.sendAll(pickle.dumps(True))
+                messageToSend.result = True
+                clientSocket.sendall(pickle.dumps(messageToSend))
             else:
-                clientSocket.sendAll(pickle.dumps(False))
+                messageToSend.result = False
+                clientSocket.sendall(pickle.dumps(messageToSend))
             
 
 def main():
-    postNumber = 15029
+    postNumber = 15033
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('',postNumber))
     serverSocket.listen(1)
