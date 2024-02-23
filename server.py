@@ -76,10 +76,9 @@ def sendMsgToOfflineAcc(clientSocket, messageRecieved):
     accUsernameToSendTo = accNamesAndMessage[:accNamesAndMessage.index(' ')+1]
     actualMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1]
     accToConnectTo = getAccount(accUsernameToSendTo)
-    if accToConnectTo.inbox.get(accUsernameToSendFrom) is not None:
-        accToConnectTo.inbox[accUsernameToSendFrom].append(actualMessage)
-    else:
-        accToConnectTo.inbox[accToConnectTo] = [actualMessage]
+    if accToConnectTo.inbox.get(accUsernameToSendFrom) is None:
+        accToConnectTo.inbox[accToConnectTo] = []
+    accToConnectTo.inbox[accUsernameToSendFrom].append(accUsernameToSendFrom + ": " + actualMessage)
     updateUserBase(accToConnectTo)
 
 
@@ -146,7 +145,7 @@ def clientHandler(clientSocket):
             
 
 def main():
-    postNumber = 15033
+    postNumber = 15034
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('',postNumber))
     serverSocket.listen(1)

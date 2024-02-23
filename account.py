@@ -6,10 +6,11 @@ class Status(enum.Enum):
     AWAY = "Away"
 
 class Account:
-    def __init__(self, accUsername="spaceHolder", status=Status.OFFLINE, address="", port=-1):
+    def __init__(self, accUsername="spaceHolder", status=Status.OFFLINE, address="", port=-1, currentlyInbox=None):
         self.accUsername = accUsername
         self.inbox = {}
         self.status = status
         self.address = address
         self.port = port
+        self.currentlyInbox = currentlyInbox
 
