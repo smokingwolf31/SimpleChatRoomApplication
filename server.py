@@ -72,12 +72,12 @@ def sendMsgToOfflineAcc(clientSocket, messageRecieved):
     print("Here Here")
     accNamesAndMessage = messageRecieved.text
     accUsernameToSendFrom = accNamesAndMessage[:accNamesAndMessage.index(' ')]
-    accNamesAndMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1]
-    accUsernameToSendTo = accNamesAndMessage[:accNamesAndMessage.index(' ')+1]
-    actualMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1]
+    accNamesAndMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1:]
+    accUsernameToSendTo = accNamesAndMessage[:accNamesAndMessage.index(' ')]
+    actualMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1:]
     accToConnectTo = getAccount(accUsernameToSendTo)
     if accToConnectTo.inbox.get(accUsernameToSendFrom) is None:
-        accToConnectTo.inbox[accToConnectTo] = []
+        accToConnectTo.inbox[accUsernameToSendFrom] = []
     accToConnectTo.inbox[accUsernameToSendFrom].append(accUsernameToSendFrom + ": " + actualMessage)
     updateUserBase(accToConnectTo)
 
@@ -113,7 +113,9 @@ def clientHandler(clientSocket):
 
         #Send messages to offline users 
         elif (message == requests[3]):
+            print("Second")
             sendMsgToOfflineAcc(clientSocket, messageRecieved)
+            print("Third")
 
         # List online users
         elif (message == requests[4]):
@@ -145,7 +147,7 @@ def clientHandler(clientSocket):
             
 
 def main():
-    postNumber = 15034
+    postNumber = 15038
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('',postNumber))
     serverSocket.listen(1)

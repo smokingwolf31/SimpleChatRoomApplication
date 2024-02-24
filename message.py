@@ -6,7 +6,7 @@ class Message:
         self.text = text
         self.account = account
         self.arrayToSend = []
-        self.result = result #boolean exp
+        self.result = result
         self.ipAddress = ipAddress
         self.portNumber = portNumber
 
