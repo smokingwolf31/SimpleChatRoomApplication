@@ -147,7 +147,7 @@ def clientHandler(clientSocket):
             
 
 def main():
-    postNumber = 15039
+    postNumber = 15040
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('',postNumber))
     serverSocket.listen(1)
