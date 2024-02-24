@@ -8,7 +8,7 @@ import os
 
 myAccount = account.Account(accUsername="spaceHolder", status=account.Status.OFFLINE)
 serverName = "196.47.231.19"
-serverPort = 15038
+serverPort = 15039
 
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.connect((serverName, serverPort))
@@ -64,9 +64,7 @@ def logIn():
         else:
             print("Account not found !!\n")
 
-def handleOnlineInbox(clientSocket, usernameToSendTo):
-    print(usernameToSendTo + " ** Online **\n")
-    printInbox(usernameToSendTo)
+def handleOnlineInbox(clientSocket, usernameToSendTo, actualMessageFromOfflineHandle):
     messageToSend = msg.Message()
     messageToSend.request = "ConnectToAcc*"
     messageToSend.text = usernameToSendTo
@@ -79,7 +77,15 @@ def handleOnlineInbox(clientSocket, usernameToSendTo):
     stillOnline = True
     actualMessage = ""
     while stillOnline:
-        actualMessage = input("Enter your message or Quit** to exit\n")
+        clearTerminal()
+        print(usernameToSendTo + " ** Online **\n")
+        print ("Enter your message or Quit** to exit\n\n")
+        printInbox(usernameToSendTo)
+        if actualMessageFromOfflineHandle !=  None:
+            actualMessage = actualMessageFromOfflineHandle
+            actualMessageFromOfflineHandle = None
+        else:
+            actualMessage = input(myAccount.accUsername+": ")
         if actualMessage == "Quit**":
             peerSocketUDP.close()
             return
@@ -95,25 +101,27 @@ def handleOnlineInbox(clientSocket, usernameToSendTo):
         clientSocket.sendall(pickle.dumps(messageToSend))
         stillOnline = pickle.loads(clientSocket.recv(4028)).result
         messageToSend.request = myAccount.accUsername
-    clearTerminal()
-    print("User Went Offline\n")
     handleOfflineInbox(usernameToSendTo, actualMessage)
 
 
 
-def handleOfflineInbox(usernameToSendTo, actualMessageFromOnlineHandle):
-    print(usernameToSendTo + " ** Offline **\n")
+def handleOfflineInbox(clientSocket, usernameToSendTo, actualMessageFromOnlineHandle):
     printInbox(usernameToSendTo)
-    if actualMessageFromOnlineHandle == None:
-        actualMessage = print("Enter your message or Quit** to exit:\n")
-    while True:
+    stillOffline = True
+    actualMessage = ""
+    messageToSend = msg.Message()
+    while stillOffline:
+        clearTerminal()
+        print(usernameToSendTo + " ** Offline **\n")
+        print ("Enter your message or Quit** to exit\n\n")
+        printInbox(usernameToSendTo)
         if actualMessageFromOnlineHandle !=  None:
             actualMessage = actualMessageFromOnlineHandle
             actualMessageFromOnlineHandle = None
         else:
-            actualMessage = input()
+            actualMessage = input(myAccount.accUsername+": ")
         if(actualMessage == "Quit**"):
-            break
+            return
         messageToSend = msg.Message()
         messageToSend.request = "MsgOfflineAcc"
         messageToSend.text = myAccount.accUsername + " " + usernameToSendTo + " " + actualMessage 
@@ -121,6 +129,12 @@ def handleOfflineInbox(usernameToSendTo, actualMessageFromOnlineHandle):
         if myAccount.inbox.get(usernameToSendTo) is None:
             myAccount.inbox[usernameToSendTo] = []
         myAccount.inbox[usernameToSendTo].append(myAccount.accUsername+ ": " +actualMessage)
+        messageToSend.request = "IsUserOnline*"
+        messageToSend.text = usernameToSendTo
+        clientSocket.sendall(pickle.dumps(messageToSend))
+        stillOffline = pickle.loads(clientSocket.recv(4028)).result
+    handleOnlineInbox(usernameToSendTo, usernameToSendTo, actualMessage)
+
 
 def handleInbox():
     global myAccount
@@ -143,9 +157,9 @@ def handleInbox():
             userOnline = pickle.loads(clientSocket.recv(4028)).result
             clearTerminal()
             if (userOnline):
-                handleOnlineInbox(clientSocket, usernameToSendTo)
+                handleOnlineInbox(clientSocket, usernameToSendTo, None)
             else:
-                handleOfflineInbox(usernameToSendTo, None)
+                handleOfflineInbox(clientSocket, usernameToSendTo, None)
             myAccount.currentlyInbox = ""
             break
 
@@ -165,6 +179,10 @@ def handleReceivedInbox(peerSocket):
                 messageSent = messageReceived.text
                 sender = messageReceived.request
                 if(sender == myAccount.currentlyInbox):
+                    clearTerminal()
+                    print(sender + " ** Online **\n")
+                    print ("Enter your message or Quit** to exit\n\n")
+                    printInbox(sender)
                     print(sender + ": " + messageSent)
                 if myAccount.inbox.get(sender) is None:
                     myAccount.inbox[sender] = []
