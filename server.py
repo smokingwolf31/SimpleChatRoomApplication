@@ -35,12 +35,13 @@ def updateUserBase(userToUpdate):
             currentUser.port = userToUpdate.port
             break
         
-def signUp(clientSocket, messageRecieved):
+def signUp(clientSocket, messageRecieved, clientAddr):
     if(not alreadyAUser(messageRecieved.text)):
         user = account.Account()
         user.accUsername = messageRecieved.text
         user.status = account.Status.ONLINE
-        user.address, _ = clientSocket.getsockname()
+        user.address, _ = clientAddr
+        print(user.accUsername + " "+user.address)
         user.port = 16000 + len(userBase)
         with userBaseLock:
             userBase.append(user)
@@ -49,12 +50,12 @@ def signUp(clientSocket, messageRecieved):
     else:
         clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account()))) #3rd Message Sent
 
-def logIn(clientSocket, messageRecieved):
+def logIn(clientSocket, messageRecieved, clientAddr):
     accUsername = messageRecieved.text
     if (alreadyAUser(accUsername)):
         user = getAccount(accUsername)
         user.status = account.Status.ONLINE
-        user.address, _ = clientSocket.getsockname()
+        user.address, _ = clientAddr
         clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
         updateUserBase(user)
     else:
@@ -94,18 +95,18 @@ def logOut(clientSocket, messageSent):
     user.socket = None
     updateUserBase(user)
 
-def clientHandler(clientSocket):
+def clientHandler(clientSocket, clientAddr):
     while True:
         messageRecieved = pickle.loads(clientSocket.recv(4028)) #1st message recieved
         message = messageRecieved.request
 
         # Sign Up
         if (message == requests[0]): #request[0] = "SignUp*******"
-            signUp(clientSocket, messageRecieved)
+            signUp(clientSocket, messageRecieved, clientAddr)
 
         # Log In
         elif (message == requests[1]):
-            logIn(clientSocket, messageRecieved)
+            logIn(clientSocket, messageRecieved, clientAddr)
         
         #Connect with another user
         elif (message == requests[2]):
@@ -154,7 +155,7 @@ def main():
 
     while True:
         clientSocket, clientAddr = serverSocket.accept()
-        clientHandlerThread = threading.Thread(target=clientHandler, args=(clientSocket,))
+        clientHandlerThread = threading.Thread(target=clientHandler, args=(clientSocket,clientAddr))
         clientHandlerThread.start()
 
 if __name__ == "__main__":
