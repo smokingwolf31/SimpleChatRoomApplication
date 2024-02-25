@@ -7,7 +7,7 @@ import select
 import os
 
 myAccount = account.Account(accUsername="spaceHolder", status=account.Status.OFFLINE)
-serverName = "196.47.229.242"
+serverName = "196.47.227.102"
 serverPort = 15040
 
 clientSocket = socket(AF_INET, SOCK_STREAM)
