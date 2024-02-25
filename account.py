@@ -8,7 +8,8 @@ class Status(enum.Enum):
 class Account:
     def __init__(self, accUsername="spaceHolder", status=Status.OFFLINE, address="", port=-1, currentlyInbox=None):
         self.accUsername = accUsername
-        self.inbox = {}
+        self.privateInbox = {}
+        self.groupInbox = {}
         self.status = status
         self.address = address
         self.port = port
