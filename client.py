@@ -32,47 +32,39 @@ def clearTerminal():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def signUp():
-    while True:
-        global myAccount
-        userName = input("Please enter a user name you like or q to quit\n").strip()
-        messageToSend = msg.Message() #sent messageToSend.text = usernName
-        if userName == "q":
-            break
-        if " " in userName:
-            clearTerminal()
-            print("***No spaces are allowed in your username***\n\n")
-        messageToSend.request = "SignUp*******"
-        messageToSend.text = userName
-        clientSocket.sendall(pickle.dumps(messageToSend))
-        accSent = (pickle.loads(clientSocket.recv(4028))).account
-        if(accSent.status == account.Status.OFFLINE):
-            clearTerminal()
-            print("***That username is taken***\n\n")
-        else:
-            myAccount = accSent
-            print("Account created your username is:\n"+myAccount.accUsername)
-            peerSocket.bind(('',myAccount.port))
-            inboxRecivindThread.start()
-            break
-            
+    username = input("Please enter a username you like or q to quit: ").strip()
+    if username == "q":
+        return
+    password = input("Please enter a password: ")  # Prompt for password during sign-up
+    messageToSend = msg.Message()
+    messageToSend.request = "SignUp*******"
+    messageToSend.text = f"{username}:{password}"  # Send username and password separated by colon
+    clientSocket.sendall(pickle.dumps(messageToSend))
+    accSent = pickle.loads(clientSocket.recv(4028)).account
+    if accSent.status == account.Status.OFFLINE:
+        print("That username is taken.")
+    else:
+        myAccount = accSent
+        print("Account created. Your username is:", myAccount.accUsername)
+        peerSocket.bind(('', myAccount.port))
+        inboxRecivindThread.start()
 
 def logIn():
-    global myAccount
-    while True:
-        userName = input("Please enter your username or q to quit\n")
-        if (userName == "q"):
-            break
-        messageToSend = msg.Message()
-        messageToSend.request = "LogIn********"
-        messageToSend.text = userName
-        clientSocket.sendall(pickle.dumps(messageToSend))
-        myAccount = pickle.loads(clientSocket.recv(4028)).account
-        if (myAccount.status == account.Status.ONLINE):
-            peerSocket.bind(('',myAccount.port))
-            inboxRecivindThread.start()
-            break
-        else:
-            print("Account not found !!\n")
+    username = input("Please enter your username or q to quit: ")
+    if username == "q":
+        return
+    password = input("Please enter your password: ")  # Prompt for password during login
+    messageToSend = msg.Message()
+    messageToSend.request = "LogIn********"
+    messageToSend.text = f"{username}:{password}"  # Send username and password separated by colon
+    clientSocket.sendall(pickle.dumps(messageToSend))
+    myAccount = pickle.loads(clientSocket.recv(4028)).account
+    if myAccount.status == account.Status.ONLINE:
+        print("Welcome back", myAccount.accUsername)
+        peerSocket.bind(('', myAccount.port))
+        inboxRecivindThread.start()
+    else:
+        print("Account not found or password incorrect.")
 
 def handleOnlineInbox(clientSocket, usernameToSendTo, actualMessageFromOfflineHandle):
     messageToSend = msg.Message()
