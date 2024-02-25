@@ -8,7 +8,7 @@ import os
 
 myAccount = account.Account(accUsername="spaceHolder", status=account.Status.OFFLINE)
 serverName = "196.47.227.102"
-serverPort = 15040
+serverPort = 15041
 
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.connect((serverName, serverPort))
