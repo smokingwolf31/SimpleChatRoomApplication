@@ -281,61 +281,67 @@ def listOnlineAccounts():
         print("No online users at the moment\n")
 
 def logOut():
-    myAccount.status = account.Status.OFFLINE
-    messageToSend = msg.Message()
-    messageToSend.request = "LogOut*******"
-    messageToSend.account = myAccount
-    clientSocket.sendall(pickle.dumps(messageToSend))
+    if myAccount.status == account.Status.ONLINE:
+        myAccount.status = account.Status.OFFLINE
+        messageToSend = msg.Message()
+        messageToSend.request = "LogOut*******"
+        messageToSend.account = myAccount
+        clientSocket.sendall(pickle.dumps(messageToSend))
     clientSocket.close()
     peerSocket.close()
+    sys.exit()
     print("It was nice having you :)\n")
 
 inboxRecivindThread = threading.Thread(target=handleReceivedInbox, args=(peerSocket,))
 
 def main():
-    while True:
-        #Sign Up
-        if(myAccount.status == account.Status.OFFLINE):
-            request = input("1. Sign Up\n2. Log In\n3.Quit")
-            if request == "1":
-                clearTerminal()
-                signUp()
-            elif request == "2":
-                clearTerminal()
-                logIn()
-            elif request == "3":
-                clearTerminal()
-                logOut()
-                sys.exit()
+    try:
+        clearTerminal()
+        while True:
+            #Sign Up
+            if(myAccount.status == account.Status.OFFLINE):
+                request = input("1. Sign Up\n2. Log In\n3. Quit\n")
+                if request == "1":
+                    clearTerminal()
+                    signUp()
+                elif request == "2":
+                    clearTerminal()
+                    logIn()
+                elif request == "3":
+                    clearTerminal()
+                    logOut()
+                else:
+                    print("Please enter a valid option\n")
             else:
-                print("Please enter a valid option\n")
-        else:
-            clearTerminal()
-            request = input("Logged in as "+myAccount.accUsername+"\n\n1. Inbox\n2. List Online People\n3. Log Out\n")
-            if request == "1":
                 clearTerminal()
-                while True:
-                    inboxRequest = input("Logged in as "+myAccount.accUsername+"\n\n1. My Contacts\n2. My Groups\n3. Back\n")
-                    if inboxRequest == "1":
-                        clearTerminal()
-                        handlePrivateInbox()
-                    elif inboxRequest == "2":
-                        clearTerminal()
-                        handleGroupInbox()
-                    elif inboxRequest == "3":
-                        clearTerminal()
-                        break
-                    else:
-                        print("Please enter a valid input\n")
+                request = input("Logged in as "+myAccount.accUsername+"\n\n1. Inbox\n2. List Online People\n3. Log Out\n")
+                if request == "1":
+                    clearTerminal()
+                    while True:
+                        inboxRequest = input("Logged in as "+myAccount.accUsername+"\n\n1. My Contacts\n2. My Groups\n3. Back\n")
+                        if inboxRequest == "1":
+                            clearTerminal()
+                            handlePrivateInbox()
+                        elif inboxRequest == "2":
+                            clearTerminal()
+                            handleGroupInbox()
+                        elif inboxRequest == "3":
+                            clearTerminal()
+                            break
+                        else:
+                            print("Please enter a valid input\n")
 
-            elif request == "2":
-                listOnlineAccounts()
-            elif request == "3":
-                clearTerminal()
-                logOut()
-                break
-            else:
-                print("Please enter a valid option\n")
+                elif request == "2":
+                    listOnlineAccounts()
+                elif request == "3":
+                    clearTerminal()
+                    logOut()
+                    break
+                else:
+                    print("Please enter a valid option\n")
+    except :
+        logOut()
+        sys.exit()
 
 if __name__ == "__main__":
     main()

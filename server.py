@@ -91,10 +91,13 @@ def whoIsOnline(clientSocket, messageRecieved):
 
 def logOut(clientSocket, messageSent):
     user = messageSent.account
+    if user.status == account.Status.ONLINE:
+        user.status = account.Status.OFFLINE
+        user.address = ""
+        user.port = -1
+        user.currentlyInbox = None
+        updateUserBase(user)
     clientSocket.close()
-    user.status = account.Status.OFFLINE
-    user.socket = None
-    updateUserBase(user)
 
 def sendMessageToGroup(groupName, sender, actualMessage):
     groupMembers = currentGroups[groupName]
