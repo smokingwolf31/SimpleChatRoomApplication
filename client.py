@@ -4,20 +4,27 @@ import account
 import message as msg
 import pickle
 import select
+import sys
 import os
 
 myAccount = account.Account(accUsername="spaceHolder", status=account.Status.OFFLINE)
 serverName = "196.47.227.102"
-serverPort = 15040
+serverPort = 15048
 
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.connect((serverName, serverPort))
 
 peerSocket = socket(AF_INET, SOCK_DGRAM)
 
-def printInbox(username):
-    if myAccount.inbox.get(username) is not None:
-        currentInbox = myAccount.inbox[username]
+def printPrivateInbox(username):
+    if myAccount.privateInbox.get(username) is not None:
+        currentInbox = myAccount.privateInbox[username]
+        for textMessage in currentInbox:
+            print(textMessage)
+
+def printGroupInbox(groupName):
+    if myAccount.groupInbox.get(groupName) is not None:
+        currentInbox = myAccount.groupInbox[groupName]
         for textMessage in currentInbox:
             print(textMessage)
 
@@ -31,12 +38,16 @@ def signUp():
         messageToSend = msg.Message() #sent messageToSend.text = usernName
         if userName == "q":
             break
+        if " " in userName:
+            clearTerminal()
+            print("***No spaces are allowed in your username***\n\n")
         messageToSend.request = "SignUp*******"
         messageToSend.text = userName
         clientSocket.sendall(pickle.dumps(messageToSend))
         accSent = (pickle.loads(clientSocket.recv(4028))).account
         if(accSent.status == account.Status.OFFLINE):
-            print("That username is taken\n")
+            clearTerminal()
+            print("***That username is taken***\n\n")
         else:
             myAccount = accSent
             print("Account created your username is:\n"+myAccount.accUsername)
@@ -57,7 +68,6 @@ def logIn():
         clientSocket.sendall(pickle.dumps(messageToSend))
         myAccount = pickle.loads(clientSocket.recv(4028)).account
         if (myAccount.status == account.Status.ONLINE):
-            print("Welcome back" + myAccount.accUsername+"\n")
             peerSocket.bind(('',myAccount.port))
             inboxRecivindThread.start()
             break
@@ -87,7 +97,7 @@ def handleOnlineInbox(clientSocket, usernameToSendTo, actualMessageFromOfflineHa
         clearTerminal()
         print(usernameToSendTo + " ** Online **\n")
         print ("Enter your message or Quit** to exit\n\n")
-        printInbox(usernameToSendTo)
+        printPrivateInbox(usernameToSendTo)
         if actualMessageFromOfflineHandle !=  None:
             actualMessage = actualMessageFromOfflineHandle
             actualMessageFromOfflineHandle = None
@@ -96,19 +106,17 @@ def handleOnlineInbox(clientSocket, usernameToSendTo, actualMessageFromOfflineHa
         if actualMessage == "Quit**":
             peerSocketUDP.close()
             return
-        messageToSend.request = myAccount.accUsername
-        messageToSend.text = actualMessage
+        messageToSend.text = "Private** "+ myAccount.accUsername + " " + actualMessage
         peerSocketUDP.connect((peerAddress, peerPort))
         peerSocketUDP.sendall(pickle.dumps(messageToSend))
         print(myAccount.accUsername+ ": " +actualMessage)
-        if myAccount.inbox.get(usernameToSendTo) is None:
-            myAccount.inbox[usernameToSendTo] = []
-        myAccount.inbox[usernameToSendTo].append(myAccount.accUsername+ ":" +actualMessage)
+        if myAccount.privateInbox.get(usernameToSendTo) is None:
+            myAccount.privateInbox[usernameToSendTo] = []
+        myAccount.privateInbox[usernameToSendTo].append(myAccount.accUsername+ ":" +actualMessage)
 
 
 
 def handleOfflineInbox(clientSocket, usernameToSendTo, actualMessageFromOnlineHandle):
-    printInbox(usernameToSendTo)
     actualMessage = ""
     messageToSend = msg.Message()
     while True:
@@ -122,7 +130,7 @@ def handleOfflineInbox(clientSocket, usernameToSendTo, actualMessageFromOnlineHa
         clearTerminal()
         print(usernameToSendTo + " ** Offline **\n")
         print ("Enter your message or Quit** to exit\n\n")
-        printInbox(usernameToSendTo)
+        printPrivateInbox(usernameToSendTo)
         if actualMessageFromOnlineHandle !=  None:
             actualMessage = actualMessageFromOnlineHandle
             actualMessageFromOnlineHandle = None
@@ -138,7 +146,7 @@ def handleOfflineInbox(clientSocket, usernameToSendTo, actualMessageFromOnlineHa
         myAccount.inbox[usernameToSendTo].append(myAccount.accUsername+ ": " +actualMessage)
 
 
-def handleInbox():
+def handlePrivateInbox():
     global myAccount
     while True:
         usernameToSendTo = input("Please enter their username (q to exit)\n")
@@ -169,6 +177,58 @@ def handleInbox():
             print("An account with that username was Not Found\n")
             continue
 
+def sendMessageToGroup(groupName):
+    myAccount.currentlyInbox = groupName
+    messageToSend = msg.Message()
+    while True:
+        clearTerminal()
+        print("*** "+groupName+" ***\n")
+        print("Enter your message or Quit** to exit\n\n")
+        printGroupInbox(groupName)
+        actualMessage = input(myAccount.accUsername+": ")
+        if (actualMessage == "Quit**"):
+            myAccount.currentlyInbox = ""
+            break
+        messageToSend.request = "SendToGroup**"
+        messageToSend.text = groupName + " " + myAccount.accUsername + " " + actualMessage
+        clientSocket.sendall(pickle.dumps(messageToSend))
+    myAccount.currentlyInbox = ""
+
+
+def handleGroupInbox():
+    global myAccount
+    while True:
+        groupName = input("Please enter the group name (q to exit)\n")
+        if (groupName == "q"):
+            break
+        messageToSend = msg.Message()
+        messageToSend.request = "DoesGroupExist"
+        messageToSend.text = groupName
+        clientSocket.sendall(pickle.dumps(messageToSend))
+        groupExits = pickle.loads(clientSocket.recv(4028))
+        if groupExits:
+            if myAccount.groupInbox.get(groupName) is None:
+                joinGroup = input("Do you wish to join "+groupName+" (Y/n)")
+                if(joinGroup.lower() == "y"):
+                    myAccount.groupInbox[groupName] = []
+                    messageToSend.request = "AddToGroup***"
+                    messageToSend.text = groupName + " " + myAccount.accUsername
+                    clientSocket.sendall(pickle.dumps(messageToSend))
+                else:
+                    continue
+        else:
+            createGroup = input("That group does not exist would you like to create it (Y/n)")
+            if createGroup.lower() == "y":
+                myAccount.groupInbox[groupName] = []
+                messageToSend.request = "AddToGroup***"
+                messageToSend.text = groupName +" "+ myAccount.accUsername
+                clientSocket.sendall(pickle.dump(messageToSend))
+            else:
+                continue
+        sendMessageToGroup(groupName)
+        
+
+
 def handleReceivedInbox(peerSocket):
     peerSocket.settimeout(1)
     while myAccount.status == account.Status.ONLINE:
@@ -179,18 +239,31 @@ def handleReceivedInbox(peerSocket):
                 data, _ = peerSocket.recvfrom(2048)
                 messageReceived = pickle.loads(data)
                 messageSent = messageReceived.text
-                sender = messageReceived.request
-                if(sender == myAccount.currentlyInbox):
-                    clearTerminal()
-                    print(sender + " ** Online **\n")
-                    print ("Enter your message or Quit** to exit\n\n")
-                    printInbox(sender)
-                    print(sender + ": " + messageSent)
-                if myAccount.inbox.get(sender) is None:
-                    myAccount.inbox[sender] = []
-                myAccount.inbox[sender].append(sender + ": "+ messageSent)
+                messageType = messageSent[:messageSent.index(" ")]
+                messageSent = messageSent[messageSent.index(" ")+1:]
+                sender = messageSent[:messageSent.index(" ")]
+                messageSent = messageSent[messageSent.index(" ")+1:]
+                if messageType == "Group**":
+                    groupName = messageSent[:messageSent.index(" ")]
+                    messageSent = messageSent[messageSent.index(" ")+1:]
+                    if groupName == myAccount.currentlyInbox:
+                        clearTerminal()
+                        print("** "+groupName+" **")
+                        print ("Enter your message or Quit** to exit\n\n")
+                        printGroupInbox(groupName)
+                        print(sender + ": " + messageSent)
+                    myAccount.groupInbox.setdefault(groupName, []).append(sender + ": "+ messageSent)
+                else:
+                    if(sender == myAccount.currentlyInbox):
+                        clearTerminal()
+                        print(sender + " ** Online **\n")
+                        print ("Enter your message or Quit** to exit\n\n")
+                        printPrivateInbox(sender)
+                        print(sender + ": " + messageSent)
+                    myAccount.privateInbox.setdefault(sender, []).append(sender + ": " + messageSent)
+
         except Exception as e:
-            print(e)
+            pass
 
 
 
@@ -215,7 +288,6 @@ def logOut():
     clientSocket.sendall(pickle.dumps(messageToSend))
     clientSocket.close()
     peerSocket.close()
-
     print("It was nice having you :)\n")
 
 inboxRecivindThread = threading.Thread(target=handleReceivedInbox, args=(peerSocket,))
@@ -224,19 +296,37 @@ def main():
     while True:
         #Sign Up
         if(myAccount.status == account.Status.OFFLINE):
-            clearTerminal()
-            request = input("1. Sign Up\n2. Log In\n")
+            request = input("1. Sign Up\n2. Log In\n3.Quit")
             if request == "1":
+                clearTerminal()
                 signUp()
-
             elif request == "2":
+                clearTerminal()
                 logIn()
+            elif request == "3":
+                clearTerminal()
+                logOut()
+                sys.exit()
             else:
                 print("Please enter a valid option\n")
         else:
-            request = input("1. Inbox\n2. List Online People\n3. Log Out\n")
+            clearTerminal()
+            request = input("Logged in as "+myAccount.accUsername+"\n\n1. Inbox\n2. List Online People\n3. Log Out\n")
             if request == "1":
-                handleInbox()
+                clearTerminal()
+                while True:
+                    inboxRequest = input("Logged in as "+myAccount.accUsername+"\n\n1. My Contacts\n2. My Groups\n3. Back\n")
+                    if inboxRequest == "1":
+                        clearTerminal()
+                        handlePrivateInbox()
+                    elif inboxRequest == "2":
+                        clearTerminal()
+                        handleGroupInbox()
+                    elif inboxRequest == "3":
+                        clearTerminal()
+                        break
+                    else:
+                        print("Please enter a valid input\n")
 
             elif request == "2":
                 listOnlineAccounts()

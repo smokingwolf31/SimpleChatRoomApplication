@@ -8,7 +8,9 @@ import message as msg
 userBase = []
 userBaseLock = threading.Lock()
 
-requests = ["SignUp*******","LogIn********","ConnectToAcc*", "MsgOfflineAcc","WhoIsOnline**","LogOut*******", "DoesUserExist", "IsUserOnline*"]
+currentGroups = {}
+
+requests = ["SignUp*******","LogIn********","ConnectToAcc*", "MsgOfflineAcc","WhoIsOnline**","LogOut*******", "DoesUserExist", "IsUserOnline*", "DoesGroupExist", "AddToGroup***","SendToGroup**"]
 
 
 def alreadyAUser(userName) -> bool:
@@ -18,6 +20,7 @@ def alreadyAUser(userName) -> bool:
             result = True
             break
     return result
+
 
 def getAccount(userName) -> account.Account:
     result = account.Account()
@@ -30,7 +33,8 @@ def updateUserBase(userToUpdate):
     for currentUser in userBase:
         if (currentUser.accUsername == userToUpdate.accUsername):
             currentUser.status = userToUpdate.status
-            currentUser.inbox = userToUpdate.inbox
+            currentUser.privateInbox = userToUpdate.privateInbox
+            currentUser.groupInbox = userToUpdate.groupInbox
             currentUser.address = userToUpdate.address
             currentUser.port = userToUpdate.port
             break
@@ -70,16 +74,13 @@ def connectToAcc(clientSocket, messageRecieved):
     clientSocket.sendall(pickle.dumps(messageToSend))
 
 def sendMsgToOfflineAcc(clientSocket, messageRecieved):
-    print("Here Here")
     accNamesAndMessage = messageRecieved.text
     accUsernameToSendFrom = accNamesAndMessage[:accNamesAndMessage.index(' ')]
     accNamesAndMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1:]
     accUsernameToSendTo = accNamesAndMessage[:accNamesAndMessage.index(' ')]
     actualMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1:]
     accToConnectTo = getAccount(accUsernameToSendTo)
-    if accToConnectTo.inbox.get(accUsernameToSendFrom) is None:
-        accToConnectTo.inbox[accUsernameToSendFrom] = []
-    accToConnectTo.inbox[accUsernameToSendFrom].append(accUsernameToSendFrom + ": " + actualMessage)
+    accToConnectTo.privateInbox.setdefault(accUsernameToSendFrom, []).append(accUsernameToSendFrom + ": " + actualMessage)
     updateUserBase(accToConnectTo)
 
 
@@ -94,6 +95,21 @@ def logOut(clientSocket, messageSent):
     user.status = account.Status.OFFLINE
     user.socket = None
     updateUserBase(user)
+
+def sendMessageToGroup(groupName, sender, actualMessage):
+    groupMembers = currentGroups[groupName]
+    messageToSend = msg.Message()
+    for currentMember in groupMembers:
+        currentMemberAcc = getAccount(currentMember)
+        if currentMemberAcc.status == account.Status.ONLINE:
+            messageToSend.text = "Group** " + sender + " " + groupName + " " + actualMessage
+            socketToMember = socket(AF_INET, SOCK_DGRAM)
+            socketToMember.connect((currentMemberAcc.address, currentMemberAcc.port))
+            socketToMember.sendall(pickle.dumps(messageToSend))
+        else:
+            currentMemberAcc.groupInbox.setdefault(groupName, []).append(sender+": "+actualMessage)
+            updateUserBase(currentMemberAcc)
+
 
 def clientHandler(clientSocket, clientAddr):
     while True:
@@ -127,13 +143,14 @@ def clientHandler(clientSocket, clientAddr):
             logOut(clientSocket, messageRecieved)
             break
 
-        #Does this user exit
+        # Does this user exit
         elif (message == requests[6]):
             messageToSend = msg.Message()
             messageToSend.result = alreadyAUser(messageRecieved.text)
             clientSocket.sendall(pickle.dumps(messageToSend))
 
-        #Is This User Online
+
+        # Is This User Online
         elif (message == requests[7]):
             print("enters elif")
             userName = messageRecieved.text
@@ -145,10 +162,36 @@ def clientHandler(clientSocket, clientAddr):
             else:
                 messageToSend.result = False
                 clientSocket.sendall(pickle.dumps(messageToSend))
+
+        # Does the group exist
+        elif (message == requests[8]):
+            messageToSend = msg.Message()
+            if currentGroups.get(messageRecieved.text) is None:
+                messageToSend.result = False
+            else:
+                messageToSend.result = True
+            clientSocket.sendall(pickle.dumps(messageToSend))
+            
+        # Add member to group
+        elif (message == requests[9]):
+            accnameToAdd = messageRecieved.text
+            groupName = accnameToAdd[:accnameToAdd.index(" ")]
+            accnameToAdd = accnameToAdd[accnameToAdd.index(" ")+1:]
+            currentGroups.setdefault(groupName, []).append(accnameToAdd)
+
+        # Send message to group
+        elif (message == requests[10]):
+            actualMessage = messageRecieved.text
+            print(actualMessage)
+            groupName = actualMessage[:actualMessage.index(" ")]
+            actualMessage = actualMessage[actualMessage.index(" ")+1:]
+            sender = actualMessage[:actualMessage.index(" ")]
+            actualMessage = actualMessage[actualMessage.index(" ")+1:]
+            sendMessageToGroup(groupName, sender, actualMessage)
             
 
 def main():
-    postNumber = 15040
+    postNumber = 15048
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('',postNumber))
     serverSocket.listen(1)
