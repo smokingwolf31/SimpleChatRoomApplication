@@ -35,30 +35,35 @@ def updateUserBase(userToUpdate):
             currentUser.port = userToUpdate.port
             break
         
-def signUp(clientSocket, messageRecieved, clientAddr):
-    if(not alreadyAUser(messageRecieved.text)):
-        user = account.Account()
-        user.accUsername = messageRecieved.text
-        user.status = account.Status.ONLINE
-        user.address, _ = clientAddr
-        print(user.accUsername + " "+user.address)
+def signUp(clientSocket, messageRecieved):
+    username = messageRecieved.text
+    password = input("Enter your password: ")  # Prompt for password during sign-up
+    if not alreadyAUser(username):
+        user = account.Account(accUsername=username, password=password, status=account.Status.ONLINE)
+        user.address, _ = clientSocket.getsockname()
         user.port = 16000 + len(userBase)
         with userBaseLock:
             userBase.append(user)
         messageToSend = msg.Message().withAccount(user)
-        clientSocket.sendall(pickle.dumps(messageToSend)) #3rd Message sent
+        clientSocket.sendall(pickle.dumps(messageToSend))
     else:
-        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account()))) #3rd Message Sent
+        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
 
-def logIn(clientSocket, messageRecieved, clientAddr):
-    accUsername = messageRecieved.text
-    if (alreadyAUser(accUsername)):
-        user = getAccount(accUsername)
-        user.status = account.Status.ONLINE
-        user.address, _ = clientAddr
-        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
-        updateUserBase(user)
+def logIn(clientSocket, messageRecieved):
+    username = messageRecieved.text
+    password = input("Enter your password: ")  # Prompt for password during login
+    if alreadyAUser(username):
+        user = getAccount(username)
+        if user.password == password:  # Password validation
+            user.status = account.Status.ONLINE
+            user.address, _ = clientSocket.getsockname()
+            clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
+            updateUserBase(user)
+        else:
+            # Password incorrect
+            clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
     else:
+        # User not found
         clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
 
 def connectToAcc(clientSocket, messageRecieved):
