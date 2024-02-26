@@ -41,8 +41,10 @@ def signUp():
         if " " in userName:
             clearTerminal()
             print("***No spaces are allowed in your username***\n\n")
+            continue
+        password = input("Please input your prefferd password\n")
         messageToSend.request = "SignUp*******"
-        messageToSend.text = userName
+        messageToSend.text = userName + " " + password
         clientSocket.sendall(pickle.dumps(messageToSend))
         accSent = (pickle.loads(clientSocket.recv(4028))).account
         if(accSent.status == account.Status.OFFLINE):
@@ -62,9 +64,14 @@ def logIn():
         userName = input("Please enter your username or q to quit\n")
         if (userName == "q"):
             break
+        if " " in userName:
+            clearTerminal()
+            print("Please enter a valid username (no spaces)")
+            continue
+        password = input("Please enter your password or q to quit\n")
         messageToSend = msg.Message()
         messageToSend.request = "LogIn********"
-        messageToSend.text = userName
+        messageToSend.text = userName + " " + password
         clientSocket.sendall(pickle.dumps(messageToSend))
         myAccount = pickle.loads(clientSocket.recv(4028)).account
         if (myAccount.status == account.Status.ONLINE):
@@ -72,7 +79,7 @@ def logIn():
             inboxRecivindThread.start()
             break
         else:
-            print("Account not found !!\n")
+            print("Incorect username or password!!\n")
 
 def handleOnlineInbox(clientSocket, usernameToSendTo, actualMessageFromOfflineHandle):
     messageToSend = msg.Message()
@@ -294,7 +301,6 @@ def main():
     try:
         clearTerminal()
         while True:
-            #Sign Up
             if(myAccount.status == account.Status.OFFLINE):
                 request = input("1. Sign Up\n2. Log In\n3. Quit\n")
                 if request == "1":

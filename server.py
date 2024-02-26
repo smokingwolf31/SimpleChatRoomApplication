@@ -41,12 +41,15 @@ def updateUserBase(userToUpdate):
             break
         
 def signUp(clientSocket, messageRecieved, clientAddr):
-    if(not alreadyAUser(messageRecieved.text)):
+    username = messageRecieved.text[:messageRecieved.text.index(" ")]
+    password = messageRecieved.text[messageRecieved.text.index(" ")+1:]
+    if(not alreadyAUser(username)):
         user = account.Account()
-        user.accUsername = messageRecieved.text
+        user.accUsername = username
+        user.password = password
         user.status = account.Status.ONLINE
-        user.address, _ = clientAddr
-        print(user.accUsername + " "+user.address)
+        user.address, user.port = clientAddr
+        print("User: " + user.accUsername + " "+user.address+" joined")
         user.port = 16000 + len(userBase)
         with userBaseLock:
             userBase.append(user)
@@ -56,15 +59,17 @@ def signUp(clientSocket, messageRecieved, clientAddr):
         clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account()))) #3rd Message Sent
 
 def logIn(clientSocket, messageRecieved, clientAddr):
-    accUsername = messageRecieved.text
+    accUsername = messageRecieved.text[:messageRecieved.text.index(" ")]
+    password = messageRecieved.text[messageRecieved.text.index(" ")+1:]
     if (alreadyAUser(accUsername)):
         user = getAccount(accUsername)
-        user.status = account.Status.ONLINE
-        user.address, user.port = clientAddr
-        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
-        updateUserBase(user)
-    else:
-        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
+        if user.password == password:
+            user.status = account.Status.ONLINE
+            user.address, _ = clientAddr
+            clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
+            updateUserBase(user)
+            return
+    clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
 
 def connectToAcc(clientSocket, messageRecieved):
     messageToSend = msg.Message()
@@ -93,7 +98,6 @@ def whoIsOnline(clientSocket, messageRecieved):
 def logOut(clientSocket, messageSent):
     user = messageSent.account
     user.address = ""
-    user.port = -1
     user.currentlyInbox = None
     user.status = account.Status.OFFLINE
     updateUserBase(user)
