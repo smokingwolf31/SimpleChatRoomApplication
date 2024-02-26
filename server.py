@@ -32,6 +32,7 @@ def getAccount(userName) -> account.Account:
 def updateUserBase(userToUpdate):
     for currentUser in userBase:
         if (currentUser.accUsername == userToUpdate.accUsername):
+            print("MOja")
             currentUser.status = userToUpdate.status
             currentUser.privateInbox = userToUpdate.privateInbox
             currentUser.groupInbox = userToUpdate.groupInbox
@@ -59,7 +60,7 @@ def logIn(clientSocket, messageRecieved, clientAddr):
     if (alreadyAUser(accUsername)):
         user = getAccount(accUsername)
         user.status = account.Status.ONLINE
-        user.address, _ = clientAddr
+        user.address, user.port = clientAddr
         clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
         updateUserBase(user)
     else:
@@ -91,12 +92,11 @@ def whoIsOnline(clientSocket, messageRecieved):
 
 def logOut(clientSocket, messageSent):
     user = messageSent.account
-    if user.status == account.Status.ONLINE:
-        user.status = account.Status.OFFLINE
-        user.address = ""
-        user.port = -1
-        user.currentlyInbox = None
-        updateUserBase(user)
+    user.address = ""
+    user.port = -1
+    user.currentlyInbox = None
+    user.status = account.Status.OFFLINE
+    updateUserBase(user)
     clientSocket.close()
 
 def sendMessageToGroup(groupName, sender, actualMessage):
@@ -133,9 +133,7 @@ def clientHandler(clientSocket, clientAddr):
 
         #Send messages to offline users 
         elif (message == requests[3]):
-            print("Second")
             sendMsgToOfflineAcc(clientSocket, messageRecieved)
-            print("Third")
 
         # List online users
         elif (message == requests[4]):
@@ -155,7 +153,6 @@ def clientHandler(clientSocket, clientAddr):
 
         # Is This User Online
         elif (message == requests[7]):
-            print("enters elif")
             userName = messageRecieved.text
             accToCheck = getAccount(userName)
             messageToSend = msg.Message()
@@ -194,7 +191,7 @@ def clientHandler(clientSocket, clientAddr):
             
 
 def main():
-    postNumber = 15048
+    postNumber = 15050
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('',postNumber))
     serverSocket.listen(1)

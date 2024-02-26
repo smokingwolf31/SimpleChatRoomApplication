@@ -9,7 +9,7 @@ import os
 
 myAccount = account.Account(accUsername="spaceHolder", status=account.Status.OFFLINE)
 serverName = "196.47.227.102"
-serverPort = 15048
+serverPort = 15050
 
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.connect((serverName, serverPort))
@@ -110,9 +110,7 @@ def handleOnlineInbox(clientSocket, usernameToSendTo, actualMessageFromOfflineHa
         peerSocketUDP.connect((peerAddress, peerPort))
         peerSocketUDP.sendall(pickle.dumps(messageToSend))
         print(myAccount.accUsername+ ": " +actualMessage)
-        if myAccount.privateInbox.get(usernameToSendTo) is None:
-            myAccount.privateInbox[usernameToSendTo] = []
-        myAccount.privateInbox[usernameToSendTo].append(myAccount.accUsername+ ":" +actualMessage)
+        myAccount.privateInbox.setdefault(usernameToSendTo, []).append(myAccount.accUsername+ ": " +actualMessage)
 
 
 
@@ -141,9 +139,7 @@ def handleOfflineInbox(clientSocket, usernameToSendTo, actualMessageFromOnlineHa
         messageToSend.request = "MsgOfflineAcc"
         messageToSend.text = myAccount.accUsername + " " + usernameToSendTo + " " + actualMessage 
         clientSocket.sendall(pickle.dumps(messageToSend))
-        if myAccount.inbox.get(usernameToSendTo) is None:
-            myAccount.inbox[usernameToSendTo] = []
-        myAccount.inbox[usernameToSendTo].append(myAccount.accUsername+ ": " +actualMessage)
+        myAccount.privateInbox.setdefault(usernameToSendTo, []).append(myAccount.accUsername+ ": " +actualMessage)
 
 
 def handlePrivateInbox():
@@ -282,15 +278,15 @@ def listOnlineAccounts():
 
 def logOut():
     if myAccount.status == account.Status.ONLINE:
-        myAccount.status = account.Status.OFFLINE
         messageToSend = msg.Message()
         messageToSend.request = "LogOut*******"
+        myAccount.status = account.Status.OFFLINE
         messageToSend.account = myAccount
         clientSocket.sendall(pickle.dumps(messageToSend))
+        myAccount.status = account.Status.OFFLINE
     clientSocket.close()
     peerSocket.close()
     sys.exit()
-    print("It was nice having you :)\n")
 
 inboxRecivindThread = threading.Thread(target=handleReceivedInbox, args=(peerSocket,))
 
@@ -313,7 +309,6 @@ def main():
                 else:
                     print("Please enter a valid option\n")
             else:
-                clearTerminal()
                 request = input("Logged in as "+myAccount.accUsername+"\n\n1. Inbox\n2. List Online People\n3. Log Out\n")
                 if request == "1":
                     clearTerminal()
@@ -341,7 +336,6 @@ def main():
                     print("Please enter a valid option\n")
     except :
         logOut()
-        sys.exit()
 
 if __name__ == "__main__":
     main()
