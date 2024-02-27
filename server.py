@@ -54,9 +54,9 @@ def signUp(clientSocket, messageRecieved, clientAddr):
         with userBaseLock:
             userBase.append(user)
         messageToSend = msg.Message().withAccount(user)
-        clientSocket.sendall(pickle.dumps(messageToSend)) #3rd Message sent
+        clientSocket.sendall(pickle.dumps(messageToSend))
     else:
-        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account()))) #3rd Message Sent
+        clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
 
 def logIn(clientSocket, messageRecieved, clientAddr):
     accUsername = messageRecieved.text[:messageRecieved.text.index(" ")]
@@ -207,5 +207,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-        
