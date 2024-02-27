@@ -8,13 +8,12 @@ import sys
 import os
 
 myAccount = account.Account(accUsername="spaceHolder", status=account.Status.OFFLINE)
-serverName = "196.47.227.3"
-serverPort = 15050
+serverName = ""
+serverPort = -1
 
 clientSocket = socket(AF_INET, SOCK_STREAM)
-clientSocket.connect((serverName, serverPort))
-
 peerSocket = socket(AF_INET, SOCK_DGRAM)
+
 
 def printPrivateInbox(username):
     if myAccount.privateInbox.get(username) is not None:
@@ -42,7 +41,7 @@ def signUp():
             clearTerminal()
             print("***No spaces are allowed in your username***\n\n")
             continue
-        password = input("Please input your prefferd password\n")
+        password = input("Please input your preferred password\n")
         messageToSend.request = "SignUp*******"
         messageToSend.text = userName + " " + password
         clientSocket.sendall(pickle.dumps(messageToSend))
@@ -152,6 +151,9 @@ def handleOfflineInbox(clientSocket, usernameToSendTo, actualMessageFromOnlineHa
 def handlePrivateInbox():
     global myAccount
     while True:
+        myAccNames = list(myAccount.privateInbox.keys())
+        for accName in myAccNames:
+            print(accName+"\n")
         usernameToSendTo = input("Please enter their username (q to exit)\n")
         if (usernameToSendTo == "q"):
             break
@@ -195,12 +197,16 @@ def sendMessageToGroup(groupName):
         messageToSend.request = "SendToGroup**"
         messageToSend.text = groupName + " " + myAccount.accUsername + " " + actualMessage
         clientSocket.sendall(pickle.dumps(messageToSend))
+        myAccount.groupInbox.setdefault(groupName, []).append(myAccount.accUsername + " " + actualMessage)
     myAccount.currentlyInbox = ""
 
 
 def handleGroupInbox():
     global myAccount
     while True:
+        myGroups = list(myAccount.groupInbox.keys())
+        for groupName in myGroups:
+            print(groupName+"\n")
         groupName = input("Please enter the group name (q to exit)\n")
         if (groupName == "q"):
             break
@@ -298,6 +304,9 @@ def logOut():
 inboxRecivindThread = threading.Thread(target=handleReceivedInbox, args=(peerSocket,))
 
 def main():
+    serverName = sys.argv[1]
+    serverPort = int(sys.argv[2])
+    clientSocket.connect((serverName, serverPort))
     try:
         clearTerminal()
         while True:
@@ -315,11 +324,11 @@ def main():
                 else:
                     print("Please enter a valid option\n")
             else:
-                request = input("Logged in as "+myAccount.accUsername+"\n\n1. Inbox\n2. List Online People\n3. Log Out\n")
+                request = input("\nLogged in as "+myAccount.accUsername+"\n\n1. Inbox\n2. List Online People\n3. Log Out\n")
                 if request == "1":
                     clearTerminal()
                     while True:
-                        inboxRequest = input("Logged in as "+myAccount.accUsername+"\n\n1. My Contacts\n2. My Groups\n3. Back\n")
+                        inboxRequest = input("\nLogged in as "+myAccount.accUsername+"\n\n1. My Contacts\n2. My Groups\n3. Back\n")
                         if inboxRequest == "1":
                             clearTerminal()
                             handlePrivateInbox()

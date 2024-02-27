@@ -3,6 +3,7 @@ import pickle
 import threading
 import account
 import message as msg
+import sys
 
 
 userBase = []
@@ -107,6 +108,8 @@ def sendMessageToGroup(groupName, sender, actualMessage):
     groupMembers = currentGroups[groupName]
     messageToSend = msg.Message()
     for currentMember in groupMembers:
+        if currentMember == sender:
+            continue
         currentMemberAcc = getAccount(currentMember)
         if currentMemberAcc.status == account.Status.ONLINE:
             messageToSend.text = "Group** " + sender + " " + groupName + " " + actualMessage
@@ -195,9 +198,9 @@ def clientHandler(clientSocket, clientAddr):
             
 
 def main():
-    postNumber = 15050
+    portNumber = int(sys.argv[1])
     serverSocket = socket(AF_INET, SOCK_STREAM)
-    serverSocket.bind(('',postNumber))
+    serverSocket.bind(('',portNumber))
     serverSocket.listen(1)
 
     while True:
