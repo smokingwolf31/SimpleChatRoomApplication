@@ -1,6 +1,7 @@
 from socket import *
 import pickle
 import threading
+import requests
 import account
 import message as msg
 import sys
@@ -33,7 +34,6 @@ def getAccount(userName) -> account.Account:
 def updateUserBase(userToUpdate):
     for currentUser in userBase:
         if (currentUser.accUsername == userToUpdate.accUsername):
-            print("MOja")
             currentUser.status = userToUpdate.status
             currentUser.privateInbox = userToUpdate.privateInbox
             currentUser.groupInbox = userToUpdate.groupInbox
@@ -50,7 +50,7 @@ def signUp(clientSocket, messageRecieved, clientAddr):
         user.password = password
         user.status = account.Status.ONLINE
         user.address, user.port = clientAddr
-        print("User: " + user.accUsername + " "+user.address+" joined")
+        print("User: " + user.accUsername + " " +user.address+ " joined")
         user.port = 16000 + len(userBase)
         with userBaseLock:
             userBase.append(user)
@@ -73,8 +73,8 @@ def logIn(clientSocket, messageRecieved, clientAddr):
     clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
 
 def connectToAcc(clientSocket, messageRecieved):
-    messageToSend = msg.Message()
-    accUsername = messageRecieved.text
+    messageToSend   = msg.Message()
+    accUsername = messageRecieved.text  
     accToConnectTo = getAccount(accUsername)
     messageToSend.ipAddress = accToConnectTo.address
     messageToSend.portNumber = accToConnectTo.port
@@ -189,7 +189,6 @@ def clientHandler(clientSocket, clientAddr):
         # Send message to group
         elif (message == requests[10]):
             actualMessage = messageRecieved.text
-            print(actualMessage)
             groupName = actualMessage[:actualMessage.index(" ")]
             actualMessage = actualMessage[actualMessage.index(" ")+1:]
             sender = actualMessage[:actualMessage.index(" ")]
@@ -201,7 +200,7 @@ def main():
     portNumber = int(sys.argv[1])
     serverSocket = socket(AF_INET, SOCK_STREAM)
     serverSocket.bind(('',portNumber))
-    serverSocket.listen(1)
+    serverSocket.listen(1) 
 
     while True:
         clientSocket, clientAddr = serverSocket.accept()

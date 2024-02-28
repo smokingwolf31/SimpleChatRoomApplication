@@ -14,22 +14,25 @@ serverPort = -1
 clientSocket = socket(AF_INET, SOCK_STREAM)
 peerSocket = socket(AF_INET, SOCK_DGRAM)
 
-
+# Used to print the current inbox between the user and the spicified contact
 def printPrivateInbox(username):
     if myAccount.privateInbox.get(username) is not None:
         currentInbox = myAccount.privateInbox[username]
         for textMessage in currentInbox:
             print(textMessage)
 
+# Used to print the current inbox between the user and the specified group inbox
 def printGroupInbox(groupName):
     if myAccount.groupInbox.get(groupName) is not None:
         currentInbox = myAccount.groupInbox[groupName]
         for textMessage in currentInbox:
             print(textMessage)
 
+# Clears the everthing written on the terminal
 def clearTerminal():
     os.system('cls' if os.name == 'nt' else 'clear')
 
+# Handles the signing up of clients. (THat is makes sure the user has an account an the server knows of this account)
 def signUp():
     while True:
         global myAccount
@@ -39,7 +42,7 @@ def signUp():
             break
         if " " in userName:
             clearTerminal()
-            print("***No spaces are allowed in your username***\n\n")
+            print("\n***No spaces are allowed in your username***\n\n")
             continue
         password = input("Please input your preferred password\n")
         messageToSend.request = "SignUp*******"
@@ -48,15 +51,15 @@ def signUp():
         accSent = (pickle.loads(clientSocket.recv(4028))).account
         if(accSent.status == account.Status.OFFLINE):
             clearTerminal()
-            print("***That username is taken***\n\n")
+            print("\n***That username is taken***\n\n")
         else:
             myAccount = accSent
-            print("Account created your username is:\n"+myAccount.accUsername)
             peerSocket.bind(('',myAccount.port))
             inboxRecivindThread.start()
             break
             
 
+# Used to log in a user. Gets the saved user account from the server
 def logIn():
     global myAccount
     while True:
@@ -80,6 +83,7 @@ def logIn():
         else:
             print("Incorect username or password!!\n")
 
+# Used to continously 
 def handleOnlineInbox(clientSocket, usernameToSendTo, actualMessageFromOfflineHandle):
     messageToSend = msg.Message()
     messageToSend.request = "ConnectToAcc*"
@@ -102,7 +106,7 @@ def handleOnlineInbox(clientSocket, usernameToSendTo, actualMessageFromOfflineHa
             break
         clearTerminal()
         print(usernameToSendTo + " ** Online **\n")
-        print ("Enter your message or Quit** to exit\n\n")
+        print ("Enter your message or (Attach** for file sending and Quit** to exit)\n\n")
         printPrivateInbox(usernameToSendTo)
         if actualMessageFromOfflineHandle !=  None:
             actualMessage = actualMessageFromOfflineHandle
@@ -112,9 +116,27 @@ def handleOnlineInbox(clientSocket, usernameToSendTo, actualMessageFromOfflineHa
         if actualMessage == "Quit**":
             peerSocketUDP.close()
             return
-        messageToSend.text = "Private** "+ myAccount.accUsername + " " + actualMessage
+        elif actualMessage == "Attach**":
+            clearTerminal()
+            while True:
+                try:
+                    filePath = input("\nPlease enter the file path or Quit** to go back\n")
+                    if filePath == "Quit**":
+                        break
+                    with open(filePath, "rb") as file:
+                        messageToSend.text = "Attach** " + myAccount.accUsername + " " + filePath
+                        messageToSend.fileData = file.read()
+                        break
+                except FileNotFoundError:
+                    clearTerminal()
+                    print("\nFile not found")
+            continue
+        else:
+            messageToSend.text = "Private** "+ myAccount.accUsername + " " + actualMessage
         peerSocketUDP.connect((peerAddress, peerPort))
+        print("Sending")
         peerSocketUDP.sendall(pickle.dumps(messageToSend))
+        print("Sent")
         print(myAccount.accUsername+ ": " +actualMessage)
         myAccount.privateInbox.setdefault(usernameToSendTo, []).append(myAccount.accUsername+ ": " +actualMessage)
 
@@ -154,11 +176,12 @@ def handlePrivateInbox():
         myAccNames = list(myAccount.privateInbox.keys())
         for accName in myAccNames:
             print(accName+"\n")
-        usernameToSendTo = input("Please enter their username (q to exit)\n")
+        usernameToSendTo = input("\nPlease enter their username (q to exit)\n")
         if (usernameToSendTo == "q"):
             break
         if (usernameToSendTo == myAccount.accUsername):
-            print("Enter an username beside your own\n")
+            clearTerminal()
+            print("Enter a username your own\n")
             continue
         messageToSend = msg.Message()
         messageToSend.request = "DoesUserExist"
@@ -179,7 +202,8 @@ def handlePrivateInbox():
             break
 
         else:
-            print("An account with that username was Not Found\n")
+            clearTerminal()
+            print("\nAn account with that username was Not Found\n")
             continue
 
 def sendMessageToGroup(groupName):
@@ -207,7 +231,7 @@ def handleGroupInbox():
         myGroups = list(myAccount.groupInbox.keys())
         for groupName in myGroups:
             print(groupName+"\n")
-        groupName = input("Please enter the group name (q to exit)\n")
+        groupName = input("\nPlease enter the group name (q to exit)\n")
         if (groupName == "q"):
             break
         messageToSend = msg.Message()
@@ -245,6 +269,7 @@ def handleReceivedInbox(peerSocket):
             readable, _, _ = select.select([peerSocket], [], [], 1)
 
             if readable:
+                print("Somethings was sent")
                 data, _ = peerSocket.recvfrom(2048)
                 messageReceived = pickle.loads(data)
                 messageSent = messageReceived.text
@@ -262,7 +287,7 @@ def handleReceivedInbox(peerSocket):
                         printGroupInbox(groupName)
                         print(sender + ": " + messageSent)
                     myAccount.groupInbox.setdefault(groupName, []).append(sender + ": "+ messageSent)
-                else:
+                elif messageType == "Private**":
                     if(sender == myAccount.currentlyInbox):
                         clearTerminal()
                         print(sender + " ** Online **\n")
@@ -270,6 +295,12 @@ def handleReceivedInbox(peerSocket):
                         printPrivateInbox(sender)
                         print(sender + ": " + messageSent)
                     myAccount.privateInbox.setdefault(sender, []).append(sender + ": " + messageSent)
+                else:
+                    print("Ifikile")
+                    fileData = messageReceived.fileData
+                    with open("test3.py", 'wb') as file:
+                        file.write(fileData)
+
 
         except Exception as e:
             pass
@@ -315,9 +346,11 @@ def main():
                 if request == "1":
                     clearTerminal()
                     signUp()
+                    clearTerminal()
                 elif request == "2":
                     clearTerminal()
                     logIn()
+                    clearTerminal()
                 elif request == "3":
                     clearTerminal()
                     logOut()
@@ -326,15 +359,17 @@ def main():
             else:
                 request = input("\nLogged in as "+myAccount.accUsername+"\n\n1. Inbox\n2. List Online People\n3. Log Out\n")
                 if request == "1":
-                    clearTerminal()
                     while True:
+                        clearTerminal()
                         inboxRequest = input("\nLogged in as "+myAccount.accUsername+"\n\n1. My Contacts\n2. My Groups\n3. Back\n")
                         if inboxRequest == "1":
                             clearTerminal()
                             handlePrivateInbox()
+                            clearTerminal()
                         elif inboxRequest == "2":
                             clearTerminal()
                             handleGroupInbox()
+                            clearTerminal()
                         elif inboxRequest == "3":
                             clearTerminal()
                             break
@@ -342,6 +377,7 @@ def main():
                             print("Please enter a valid input\n")
 
                 elif request == "2":
+                    clearTerminal()
                     listOnlineAccounts()
                 elif request == "3":
                     clearTerminal()
