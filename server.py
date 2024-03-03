@@ -14,7 +14,15 @@ currentGroups = {}
 
 requests = ["SignUp*******","LogIn********","ConnectToAcc*", "MsgOfflineAcc","WhoIsOnline**","LogOut*******", "DoesUserExist", "IsUserOnline*", "DoesGroupExist", "AddToGroup***","SendToGroup**"]
 
+"""
+    Checks if a user with the given username already exists.
 
+    Parameters:
+        userName (str): The username to check.
+
+    Returns:
+        bool: True if the user already exists, False otherwise.
+"""
 def alreadyAUser(userName) -> bool:
     result = False
     for currentUser in userBase:
@@ -23,7 +31,15 @@ def alreadyAUser(userName) -> bool:
             break
     return result
 
+"""
+    Retrieves an account object based on the given username.
 
+    Parameters:
+        userName (str): The username associated with the account.
+
+    Returns:
+        account.Account: The account object.
+"""
 def getAccount(userName) -> account.Account:
     result = account.Account()
     for currentUser in userBase:
@@ -31,6 +47,12 @@ def getAccount(userName) -> account.Account:
             result = currentUser
     return result
 
+"""
+    Updates the userBase list with the information from the given user.
+
+    Parameters:
+        userToUpdate (account.Account): The user object with updated information.
+"""
 def updateUserBase(userToUpdate):
     for currentUser in userBase:
         if (currentUser.accUsername == userToUpdate.accUsername):
@@ -40,7 +62,15 @@ def updateUserBase(userToUpdate):
             currentUser.address = userToUpdate.address
             currentUser.port = userToUpdate.port
             break
-        
+
+"""
+    Handles the sign-up process for a new user.
+
+    Parameters:
+        clientSocket (socket): The client socket.
+        messageRecieved (message.Message): The message object received from the client.
+        clientAddr (tuple): The client's address.
+""" 
 def signUp(clientSocket, messageRecieved, clientAddr):
     username = messageRecieved.text[:messageRecieved.text.index(" ")]
     password = messageRecieved.text[messageRecieved.text.index(" ")+1:]
@@ -59,19 +89,38 @@ def signUp(clientSocket, messageRecieved, clientAddr):
     else:
         clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
 
+"""
+    Handles the log-in process for an existing user.
+
+    Parameters:
+        clientSocket (socket): The client socket.
+        messageRecieved (message.Message): The message object received from the client.
+        clientAddr (tuple): The client's address.
+"""
 def logIn(clientSocket, messageRecieved, clientAddr):
     accUsername = messageRecieved.text[:messageRecieved.text.index(" ")]
     password = messageRecieved.text[messageRecieved.text.index(" ")+1:]
     if (alreadyAUser(accUsername)):
         user = getAccount(accUsername)
         if user.password == password:
-            user.status = account.Status.ONLINE
-            user.address, _ = clientAddr
-            clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
-            updateUserBase(user)
+            if(user.status == account.Status.OFFLINE):
+                user.status = account.Status.ONLINE
+                user.address, _ = clientAddr
+                clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
+                updateUserBase(user)
+            else:
+                user.status = account.Status.AWAY
+                clientSocket.sendall(pickle.dumps(msg.Message().withAccount(user)))
             return
     clientSocket.sendall(pickle.dumps(msg.Message().withAccount(account.Account())))
 
+"""
+    Handles the process of connecting to another user.
+
+    Parameters:
+        clientSocket (socket): The client socket.
+        messageRecieved (message.Message): The message object received from the client.
+"""
 def connectToAcc(clientSocket, messageRecieved):
     messageToSend   = msg.Message()
     accUsername = messageRecieved.text  
@@ -80,6 +129,13 @@ def connectToAcc(clientSocket, messageRecieved):
     messageToSend.portNumber = accToConnectTo.port
     clientSocket.sendall(pickle.dumps(messageToSend))
 
+"""
+    Handles sending messages to offline users.
+
+    Parameters:
+        clientSocket (socket): The client socket.
+        messageRecieved (message.Message): The message object received from the client.
+"""
 def sendMsgToOfflineAcc(clientSocket, messageRecieved):
     accNamesAndMessage = messageRecieved.text
     accUsernameToSendFrom = accNamesAndMessage[:accNamesAndMessage.index(' ')]
@@ -87,15 +143,29 @@ def sendMsgToOfflineAcc(clientSocket, messageRecieved):
     accUsernameToSendTo = accNamesAndMessage[:accNamesAndMessage.index(' ')]
     actualMessage = accNamesAndMessage[accNamesAndMessage.index(' ')+1:]
     accToConnectTo = getAccount(accUsernameToSendTo)
-    accToConnectTo.privateInbox.setdefault(accUsernameToSendFrom, []).append(accUsernameToSendFrom + ": " + actualMessage)
+    accToConnectTo.privateInbox.setdefault(accUsernameToSendFrom, [0]).append(accUsernameToSendFrom + ": " + actualMessage)
+    accToConnectTo.privateInbox[accUsernameToSendFrom][0] = 1 + accToConnectTo.privateInbox[accUsernameToSendFrom][0]
     updateUserBase(accToConnectTo)
 
+"""
+    Handles the process of listing online users.
 
+    Parameters:
+        clientSocket (socket): The client socket.
+        messageRecieved (message.Message): The message object received from the client.
+"""
 def whoIsOnline(clientSocket, messageRecieved):
     messageTosend = msg.Message()
     messageTosend.arrayToSend = [user.accUsername for user in userBase if user.status == account.Status.ONLINE]
     clientSocket.sendall(pickle.dumps(messageTosend))
 
+"""
+    Handles the log-out process for a user.
+
+    Parameters:
+        clientSocket (socket): The client socket.
+        messageSent (message.Message): The message object sent from the client.
+"""
 def logOut(clientSocket, messageSent):
     user = messageSent.account
     user.address = ""
@@ -104,6 +174,14 @@ def logOut(clientSocket, messageSent):
     updateUserBase(user)
     clientSocket.close()
 
+"""
+    Handles sending a message to a group.
+
+    Parameters:
+        groupName (str): The name of the group.
+        sender (str): The sender of the message.
+        actualMessage (str): The content of the message.
+"""
 def sendMessageToGroup(groupName, sender, actualMessage):
     groupMembers = currentGroups[groupName]
     messageToSend = msg.Message()
@@ -117,17 +195,24 @@ def sendMessageToGroup(groupName, sender, actualMessage):
             socketToMember.connect((currentMemberAcc.address, currentMemberAcc.port))
             socketToMember.sendall(pickle.dumps(messageToSend))
         else:
-            currentMemberAcc.groupInbox.setdefault(groupName, []).append(sender+": "+actualMessage)
+            currentMemberAcc.groupInbox.setdefault(groupName, [0]).append(sender+": "+actualMessage)
+            currentMemberAcc.groupInbox[groupName][0] = 1 + currentMemberAcc.groupInbox[groupName][0] 
             updateUserBase(currentMemberAcc)
 
+"""
+    Handles the communication with a client.
 
+    Parameters:
+        clientSocket (socket): The client socket.
+        clientAddr (tuple): The client's address.
+"""
 def clientHandler(clientSocket, clientAddr):
     while True:
-        messageRecieved = pickle.loads(clientSocket.recv(4028)) #1st message recieved
+        messageRecieved = pickle.loads(clientSocket.recv(4028)) 
         message = messageRecieved.request
 
         # Sign Up
-        if (message == requests[0]): #request[0] = "SignUp*******"
+        if (message == requests[0]):
             signUp(clientSocket, messageRecieved, clientAddr)
 
         # Log In
