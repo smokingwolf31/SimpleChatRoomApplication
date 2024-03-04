@@ -381,6 +381,7 @@ def handleReceivedInbox(peerSocket):
                     fileData = messageReceived.fileData
                     with open(fileName, 'wb') as file:
                         file.write(fileData)
+                print('\a')
 
         except Exception as e:
             pass
